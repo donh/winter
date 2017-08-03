@@ -1,0 +1,22 @@
+language: go
+
+# Don't build other branches that are being used for PRs.
+# Currently only the master branch is used in this repo.
+branches:
+  only:
+    - master
+
+matrix:
+  include:
+    - go: 1.7.5
+    - go: 1.8
+    # NOTE: no tip, see https://github.com/travis-ci/gimme/issues/38
+
+install:
+# Install all external dependencies, ensuring they are updated.
+- go get -u -v github.com/donh/winter
+
+
+script:
+- go build
+- travis_wait 20 go test -p 10 -timeout 20m -v ./...;
