@@ -384,8 +384,8 @@ func generateLoginToken(rw http.ResponseWriter, r *http.Request) {
 			iat := time.Now().UTC().Unix()
 			exp := iat + 300
 			serverJSON := map[string]interface{}{
-				"iss":     "vport.chancheng.server",
-				"aud":     "vport.chancheng.user",
+				"iss":     "idhub.chancheng.server",
+				"aud":     "idhub.chancheng.user",
 				"iat":     iat,
 				"exp":     exp,
 				"sub":     "login token",
@@ -750,8 +750,8 @@ func generateClaimToken(rw http.ResponseWriter, r *http.Request) {
 			iat := time.Now().UTC().Unix()
 			exp := iat + 300
 			serverJSON := map[string]interface{}{
-				"iss":     "vport.chancheng.server",
-				"aud":     "vport.chancheng.user",
+				"iss":     "idhub.chancheng.server",
+				"aud":     "idhub.chancheng.user",
 				"iat":     iat,
 				"exp":     exp,
 				"sub":     "claim token",
@@ -1090,8 +1090,8 @@ func generateAuthorizationToken(rw http.ResponseWriter, r *http.Request) {
 			iat := time.Now().UTC().Unix()
 			exp := iat + 300
 			serverJSON := map[string]interface{}{
-				"iss":     "vport.chancheng.server",
-				"aud":     "vport.chancheng.user",
+				"iss":     "idhub.chancheng.server",
+				"aud":     "idhub.chancheng.user",
 				"iat":     iat,
 				"exp":     exp,
 				"sub":     "authorization request",
