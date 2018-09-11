@@ -69,13 +69,13 @@ type GlobalConfig struct {
 
 // Transaction ...
 type Transaction struct {
-	Amount interface{} `json:"amount"`
-	Description string `json:"description"`
-	Custom string `json:"custom"`
-	Invoice string `json:"invoice_number"`
+	Amount         interface{}       `json:"amount"`
+	Description    string            `json:"description"`
+	Custom         string            `json:"custom"`
+	Invoice        string            `json:"invoice_number"`
 	PaymentOptions map[string]string `json:"payment_options"`
-	SoftDescriptor string `json:"soft_descriptor"`
-	ItemList interface{} `json:"item_list"`
+	SoftDescriptor string            `json:"soft_descriptor"`
+	ItemList       interface{}       `json:"item_list"`
 }
 
 // Redirects ...
@@ -181,6 +181,12 @@ func renderJSON(w http.ResponseWriter, v interface{}) {
 func getNow() string {
 	t := time.Now()
 	now := t.Format("2006-01-02 15:04:05")
+	return now
+}
+
+func getNowUTC() string {
+	t := time.Now().UTC()
+	now := t.Format(time.RFC3339)
 	return now
 }
 
@@ -1220,17 +1226,14 @@ func validateUserAauthorizationJWT(rw http.ResponseWriter, r *http.Request) {
 	setResponse(rw, nodes)
 }
 
-
-
-
-
-
-func getPayment(rw http.ResponseWriter, req *http.Request) {
-	log.Println("func getPayment()")
+func setPayment(rw http.ResponseWriter, req *http.Request) {
+	log.Println("func setPayment()")
 	// log.Println("connection message =", message)
 	errors := []string{}
 	result := map[string]interface{}{}
 	result["error"] = errors
+	// item := map[string]string{}
+	item := map[string]interface{}{}
 
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(req.Body)
@@ -1240,9 +1243,22 @@ func getPayment(rw http.ResponseWriter, req *http.Request) {
 	}
 	payload, _ := sjson.Map()
 	log.Println("connection payload =", payload)
-	// if _, ok := payload["transactions"]; ok {
+	item["id"] = "IDH-1B56960729604235TKQQIYVY"
+	now := getNowUTC()
+	item["create_time"] = now
+	item["update_time"] = now
+	item["state"] = "created"
+	if val, ok := payload["intent"]; ok {
+		log.Println("connection val =", val)
+		item["intent"] = val
+	}
+	if val, ok := payload["payer"]; ok {
+		log.Println("connection val =", val)
+		item["payer"] = val
+	}
 	if val, ok := payload["transactions"]; ok {
 		log.Println("connection val =", val)
+		item["transactions"] = val
 		// o := orm.NewOrm()
 		// groupId := ""
 		// var grp_host Grp_host
@@ -1253,83 +1269,79 @@ func getPayment(rw http.ResponseWriter, req *http.Request) {
 		// 	grp_id, err := strconv.Atoi(groupId)
 		// }
 	}
-	attestationJWT := payload["attestationJWT"].(string)
+	// attestationJWT := payload["attestationJWT"].(string)
 
-	URL := Config().API.DecodeJWT
-	params := map[string]interface{}{
-		"token": attestationJWT,
-	}
-	response := postByJSON(req, URL, params, result)
-	body := response["payload"]
-	valid := false
-	expired := true
-	exp, err := body.(map[string]interface{})["exp"].(json.Number).Int64()
-	if err == nil {
-		diff := exp - time.Now().UTC().Unix()
-		if diff > 0 {
-			expired = false
-		}
-	}
-	subject := body.(map[string]interface{})["sub"].(string)
-	claimType := strings.Replace(subject, "attestation retrieval for ", "", -1)
-	claimType = strings.ToUpper(claimType)
-	context := body.(map[string]interface{})["context"].(map[string]interface{})
-	proxy := context["userProxy"].(string)
-	publicKey := context["userPublicKey"].(string)
+	// URL := Config().API.DecodeJWT
+	// params := map[string]interface{}{
+	// 	"token": attestationJWT,
+	// }
+	// response := postByJSON(req, URL, params, result)
+	// body := response["payload"]
+	// valid := false
+	// expired := true
+	// exp, err := body.(map[string]interface{})["exp"].(json.Number).Int64()
+	// if err == nil {
+	// 	diff := exp - time.Now().UTC().Unix()
+	// 	if diff > 0 {
+	// 		expired = false
+	// 	}
+	// }
+	// subject := body.(map[string]interface{})["sub"].(string)
+	// claimType := strings.Replace(subject, "attestation retrieval for ", "", -1)
+	// claimType = strings.ToUpper(claimType)
+	// context := body.(map[string]interface{})["context"].(map[string]interface{})
+	// proxy := context["userProxy"].(string)
+	// publicKey := context["userPublicKey"].(string)
 
-	URL = Config().API.VerifyJWT
-	params = map[string]interface{}{
-		"pubkey": publicKey,
-		"token":  attestationJWT,
-	}
-	response = postByJSON(req, URL, params, result)
+	// URL = Config().API.VerifyJWT
+	// params = map[string]interface{}{
+	// 	"pubkey": publicKey,
+	// 	"token":  attestationJWT,
+	// }
+	// response = postByJSON(req, URL, params, result)
 
-	if (response["result"] == "True") && !expired {
-		valid = true
-	}
-	item := map[string]string{}
-	status := "ERROR"
-	attestation := ""
-	if valid {
-		o := orm.NewOrm()
-		o.Using("vchain")
-		sql := "SELECT id, status FROM `vchain`.`claims`"
-		sql += " WHERE proxy = ? AND type = ? ORDER BY created DESC LIMIT 1"
-		var rows []orm.Params
-		num, err := o.Raw(sql, proxy, claimType).Values(&rows)
-		if err != nil {
-			setError(err.Error(), result)
-		} else if num > 0 {
-			row := rows[0]
-			claimID := row["id"].(string)
-			status = row["status"].(string)
-			if status == "APPROVED" {
-				sql = "SELECT attestation FROM `vchain`.`attestations`"
-				sql += " WHERE claimid = ? AND status = ? ORDER BY created DESC LIMIT 1"
-				num, err := o.Raw(sql, claimID, "ACTIVE").Values(&rows)
-				if err != nil {
-					setError(err.Error(), result)
-				} else if num > 0 {
-					row = rows[0]
-					attestation = row["attestation"].(string)
-				}
-			}
-		}
-	}
+	// if (response["result"] == "True") && !expired {
+	// 	valid = true
+	// }
+	// item := map[string]string{}
+	// status := "ERROR"
+	// attestation := ""
+	// if valid {
+	// 	o := orm.NewOrm()
+	// 	o.Using("vchain")
+	// 	sql := "SELECT id, status FROM `vchain`.`claims`"
+	// 	sql += " WHERE proxy = ? AND type = ? ORDER BY created DESC LIMIT 1"
+	// 	var rows []orm.Params
+	// 	num, err := o.Raw(sql, proxy, claimType).Values(&rows)
+	// 	if err != nil {
+	// 		setError(err.Error(), result)
+	// 	} else if num > 0 {
+	// 		row := rows[0]
+	// 		claimID := row["id"].(string)
+	// 		status = row["status"].(string)
+	// 		if status == "APPROVED" {
+	// 			sql = "SELECT attestation FROM `vchain`.`attestations`"
+	// 			sql += " WHERE claimid = ? AND status = ? ORDER BY created DESC LIMIT 1"
+	// 			num, err := o.Raw(sql, claimID, "ACTIVE").Values(&rows)
+	// 			if err != nil {
+	// 				setError(err.Error(), result)
+	// 			} else if num > 0 {
+	// 				row = rows[0]
+	// 				attestation = row["attestation"].(string)
+	// 			}
+	// 		}
+	// 	}
+	// }
 	nodes := map[string]interface{}{}
-	item["status"] = status
-	if len(attestation) > 0 {
-		item["attestation"] = attestation
-	}
+	// item["status"] = status
+	// if len(attestation) > 0 {
+	// 	item["attestation"] = attestation
+	// }
 	result["items"] = item
 	nodes["result"] = result
 	rw.Header().Set("Access-Control-Allow-Origin", "*")
 	setResponse(rw, nodes)
 }
-
-
-
-
 
 func main() {
 	cfg := flag.String("c", "cfg.json", "specify config file")
@@ -1368,7 +1380,9 @@ func main() {
 	})
 
 	// https://developer.paypal.com/docs/api/payments/v1/
-	http.HandleFunc("/api/v1/payments/payment", getPayment)
+	http.HandleFunc("/api/v1/payments/payment", setPayment)
+	// https://developer.paypal.com/docs/api/identity/v1/
+	// http.HandleFunc("/api/v1/identity/idhub/userinfo", getUser)
 	http.HandleFunc("/api/v1/attestations", getAttestation)
 	http.HandleFunc("/api/v1/attestations/add", createAttestation)
 	http.HandleFunc("/api/v1/authorizations/jwt", validateUserAauthorizationJWT)
