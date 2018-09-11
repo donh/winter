@@ -14,6 +14,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -1228,7 +1229,6 @@ func validateUserAauthorizationJWT(rw http.ResponseWriter, r *http.Request) {
 
 func setPayment(rw http.ResponseWriter, req *http.Request) {
 	log.Println("func setPayment()")
-	// log.Println("connection message =", message)
 	errors := []string{}
 	result := map[string]interface{}{}
 	result["error"] = errors
@@ -1259,79 +1259,7 @@ func setPayment(rw http.ResponseWriter, req *http.Request) {
 	if val, ok := payload["transactions"]; ok {
 		log.Println("connection val =", val)
 		item["transactions"] = val
-		// o := orm.NewOrm()
-		// groupId := ""
-		// var grp_host Grp_host
-		// groups := params["groups"].([]interface{})
-		// for _, group := range groups {
-		// 	groupId = group.(map[string]interface{})["groupid"].(string)
-		// 	args["groupId"] = groupId
-		// 	grp_id, err := strconv.Atoi(groupId)
-		// }
 	}
-	// attestationJWT := payload["attestationJWT"].(string)
-
-	// URL := Config().API.DecodeJWT
-	// params := map[string]interface{}{
-	// 	"token": attestationJWT,
-	// }
-	// response := postByJSON(req, URL, params, result)
-	// body := response["payload"]
-	// valid := false
-	// expired := true
-	// exp, err := body.(map[string]interface{})["exp"].(json.Number).Int64()
-	// if err == nil {
-	// 	diff := exp - time.Now().UTC().Unix()
-	// 	if diff > 0 {
-	// 		expired = false
-	// 	}
-	// }
-	// subject := body.(map[string]interface{})["sub"].(string)
-	// claimType := strings.Replace(subject, "attestation retrieval for ", "", -1)
-	// claimType = strings.ToUpper(claimType)
-	// context := body.(map[string]interface{})["context"].(map[string]interface{})
-	// proxy := context["userProxy"].(string)
-	// publicKey := context["userPublicKey"].(string)
-
-	// URL = Config().API.VerifyJWT
-	// params = map[string]interface{}{
-	// 	"pubkey": publicKey,
-	// 	"token":  attestationJWT,
-	// }
-	// response = postByJSON(req, URL, params, result)
-
-	// if (response["result"] == "True") && !expired {
-	// 	valid = true
-	// }
-	// item := map[string]string{}
-	// status := "ERROR"
-	// attestation := ""
-	// if valid {
-	// 	o := orm.NewOrm()
-	// 	o.Using("vchain")
-	// 	sql := "SELECT id, status FROM `vchain`.`claims`"
-	// 	sql += " WHERE proxy = ? AND type = ? ORDER BY created DESC LIMIT 1"
-	// 	var rows []orm.Params
-	// 	num, err := o.Raw(sql, proxy, claimType).Values(&rows)
-	// 	if err != nil {
-	// 		setError(err.Error(), result)
-	// 	} else if num > 0 {
-	// 		row := rows[0]
-	// 		claimID := row["id"].(string)
-	// 		status = row["status"].(string)
-	// 		if status == "APPROVED" {
-	// 			sql = "SELECT attestation FROM `vchain`.`attestations`"
-	// 			sql += " WHERE claimid = ? AND status = ? ORDER BY created DESC LIMIT 1"
-	// 			num, err := o.Raw(sql, claimID, "ACTIVE").Values(&rows)
-	// 			if err != nil {
-	// 				setError(err.Error(), result)
-	// 			} else if num > 0 {
-	// 				row = rows[0]
-	// 				attestation = row["attestation"].(string)
-	// 			}
-	// 		}
-	// 	}
-	// }
 	nodes := map[string]interface{}{}
 	// item["status"] = status
 	// if len(attestation) > 0 {
@@ -1342,6 +1270,117 @@ func setPayment(rw http.ResponseWriter, req *http.Request) {
 	rw.Header().Set("Access-Control-Allow-Origin", "*")
 	setResponse(rw, nodes)
 }
+
+
+
+func getUser(rw http.ResponseWriter, req *http.Request) {
+	log.Println("func getUser()")
+	errors := []string{}
+	result := map[string]interface{}{}
+	result["error"] = errors
+	// item := map[string]string{}
+	// item := map[string]interface{}{}
+
+	Bearer := ""
+	if authorization, ok := req.Header["Authorization"]; ok {
+		// log.Println("Authorization value =", value)
+		// log.Println("Authorization authorization =", authorization)
+		// log.Println("TypeOf value =", reflect.TypeOf(value))
+		// log.Println("TypeOf authorization =", reflect.TypeOf(authorization))
+		// log.Println("Length Of value =", len(value))
+		// log.Println("Length Of authorization =", len(authorization))
+
+		// if str, ok := authorization[0]; ok {
+		if len(authorization) > 0 {
+			log.Println("authorization[0] =", authorization[0])
+			log.Println("TypeOf authorization[0] =", reflect.TypeOf(authorization[0]))
+			str := authorization[0]
+			if strings.Contains(str, "Bearer ") {
+				Bearer = strings.Replace(str, "Bearer ", "", 1)
+			}
+		}
+		// log.Println("Authorization value[0] =", value[0])
+		// log.Println("Authorization value[1] =", value[1])
+		// item["payer"] = val
+	}
+
+	// for field, value := range req.Header {
+	// 	if authorization, ok := req.Header["Authorization"]; ok {
+	// 		log.Println("Authorization value =", value)
+	// 		log.Println("Authorization authorization =", authorization)
+	// 		log.Println("TypeOf value =", reflect.TypeOf(value))
+	// 		log.Println("TypeOf authorization =", reflect.TypeOf(authorization))
+	// 		log.Println("Length Of value =", len(value))
+	// 		log.Println("Length Of authorization =", len(authorization))
+
+	// 		// if str, ok := authorization[0]; ok {
+	// 		if len(authorization) > 0 {
+	// 			log.Println("authorization[0] =", authorization[0])
+	// 			log.Println("TypeOf authorization[0] =", reflect.TypeOf(authorization[0]))
+	// 			str := authorization[0]
+	// 			if strings.Contains(str, "Bearer ") {
+	// 				Bearer = strings.Replace(str, "Bearer ", "", 1)
+	// 			}
+	// 		}
+	// 		// log.Println("Authorization value[0] =", value[0])
+	// 		// log.Println("Authorization value[1] =", value[1])
+	// 		// item["payer"] = val
+	// 	}
+	// 	// log.Println("Header field =", field)
+	// 	// log.Println("Header value =", value)
+	// 	// fmt.Fprintf(w, "Header field %q, Value %q\n", k, v)
+	// }
+	log.Println("Bearer =", Bearer)
+
+	// buf := new(bytes.Buffer)
+	// buf.ReadFrom(req.Body)
+	// sjson, err := simplejson.NewJson(buf.Bytes())
+	// if err != nil {
+	// 	setError(err.Error(), result)
+	// }
+	// payload, _ := sjson.Map()
+	// log.Println("connection payload =", payload)
+	// item["id"] = "IDH-1B56960729604235TKQQIYVY"
+	// now := getNowUTC()
+	// item["create_time"] = now
+	// item["update_time"] = now
+	// item["state"] = "created"
+	// if val, ok := payload["intent"]; ok {
+	// 	log.Println("connection val =", val)
+	// 	item["intent"] = val
+	// }
+	// if val, ok := payload["payer"]; ok {
+	// 	log.Println("connection val =", val)
+	// 	item["payer"] = val
+	// }
+	// if val, ok := payload["transactions"]; ok {
+	// 	log.Println("connection val =", val)
+	// 	item["transactions"] = val
+	// }
+
+
+	address := map[string]string{}
+	// item := map[string]interface{}{}
+	item := map[string]map[string]string{}
+	address["street_address"] = "7917394 Annursnac Hill Road Unit 0C"
+	address["locality"] = "Ventura"
+	address["region"] = "CA"
+	address["postal_code"] = "93003"
+	address["country"] = "US"
+	item["address"] = address
+	nodes := map[string]interface{}{}
+	// item["status"] = status
+	// if len(attestation) > 0 {
+	// 	item["attestation"] = attestation
+	// }
+	result["items"] = item
+	nodes["result"] = result
+	rw.Header().Set("Access-Control-Allow-Origin", "*")
+	setResponse(rw, nodes)
+}
+
+
+
 
 func main() {
 	cfg := flag.String("c", "cfg.json", "specify config file")
@@ -1382,7 +1421,7 @@ func main() {
 	// https://developer.paypal.com/docs/api/payments/v1/
 	http.HandleFunc("/api/v1/payments/payment", setPayment)
 	// https://developer.paypal.com/docs/api/identity/v1/
-	// http.HandleFunc("/api/v1/identity/idhub/userinfo", getUser)
+	http.HandleFunc("/api/v1/identity/idhub/userinfo", getUser)
 	http.HandleFunc("/api/v1/attestations", getAttestation)
 	http.HandleFunc("/api/v1/attestations/add", createAttestation)
 	http.HandleFunc("/api/v1/authorizations/jwt", validateUserAauthorizationJWT)
