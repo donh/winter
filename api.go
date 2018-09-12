@@ -1271,8 +1271,6 @@ func setPayment(rw http.ResponseWriter, req *http.Request) {
 	setResponse(rw, nodes)
 }
 
-
-
 func getUser(rw http.ResponseWriter, req *http.Request) {
 	log.Println("func getUser()")
 	errors := []string{}
@@ -1358,7 +1356,6 @@ func getUser(rw http.ResponseWriter, req *http.Request) {
 	// 	item["transactions"] = val
 	// }
 
-
 	address := map[string]string{}
 	// item := map[string]interface{}{}
 	item := map[string]map[string]string{}
@@ -1378,9 +1375,6 @@ func getUser(rw http.ResponseWriter, req *http.Request) {
 	rw.Header().Set("Access-Control-Allow-Origin", "*")
 	setResponse(rw, nodes)
 }
-
-
-
 
 func main() {
 	cfg := flag.String("c", "cfg.json", "specify config file")
