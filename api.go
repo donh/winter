@@ -407,7 +407,11 @@ func generateLoginToken(rw http.ResponseWriter, r *http.Request) {
 	token := ""
 	if verification, ok := response["result"]; ok {
 		if verification == "True" {
-			token = strings.Replace(uuid.NewV4().String(), "-", "", -1)
+			// token = strings.Replace(uuid.NewV4().String(), "-", "", -1)
+			id, _ := uuid.NewV4()
+			token = strings.Replace(id.String(), "-", "", -1)
+			// token = strings.Replace(uuid.NewV4().String(), "-", "", -1)
+			// token = strings.Replace(uuid.MustNewV4().String(), "-", "", -1)
 			serverContext := map[string]string{
 				"clientName":      context["clientName"].(string),
 				"scope":           context["scope"].(string),
@@ -774,7 +778,9 @@ func generateClaimToken(rw http.ResponseWriter, r *http.Request) {
 	token := ""
 	if verification, ok := response["result"]; ok {
 		if verification == "True" {
-			token = strings.Replace(uuid.NewV4().String(), "-", "", -1)
+			// token = strings.Replace(uuid.NewV4().String(), "-", "", -1)
+			id, _ := uuid.NewV4()
+			token = strings.Replace(id.String(), "-", "", -1)
 			serverContext := map[string]string{
 				"clientName":      context["clientName"].(string),
 				"serverPublicKey": Config().JWT.ServerPublicKey,
@@ -1113,7 +1119,9 @@ func generateAuthorizationToken(rw http.ResponseWriter, r *http.Request) {
 	token := ""
 	if verification, ok := response["result"]; ok {
 		if verification == "True" {
-			token = strings.Replace(uuid.NewV4().String(), "-", "", -1)
+			// token = strings.Replace(uuid.NewV4().String(), "-", "", -1)
+			id, _ := uuid.NewV4()
+			token = strings.Replace(id.String(), "-", "", -1)
 			serverContext := map[string]string{
 				"requesterName":   context["requesterName"].(string),
 				"scope":           context["scope"].(string),
