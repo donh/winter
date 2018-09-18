@@ -253,6 +253,7 @@ func createUser(rw http.ResponseWriter, r *http.Request) {
 	errors := []string{}
 	result := map[string]interface{}{}
 	result["error"] = errors
+	item := map[string]interface{}{}
 
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(r.Body)
@@ -262,112 +263,163 @@ func createUser(rw http.ResponseWriter, r *http.Request) {
 	}
 	user := map[string]interface{}{}
 	user, _ = sjson.Map()
-	address := user["address"].(string)
-	privateKey := user["privateKey"].(string)
+	// address := user["address"].(string)
+	// privateKey := user["privateKey"].(string)
+	log.Println("user =", user)
 
-	needCoins := true
-	URL := Config().API.GetBalance + "/" + address
-	req, err := http.NewRequest("GET", URL, nil)
-	if err != nil {
-		setError(err.Error(), result)
-	}
+	// needCoins := true
+	// URL := Config().API.GetBalance + "/" + address
+	// req, err := http.NewRequest("GET", URL, nil)
+	// if err != nil {
+	// 	setError(err.Error(), result)
+	// }
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		setError(err.Error(), result)
-	}
-	defer resp.Body.Close()
+	// client := &http.Client{}
+	// resp, err := client.Do(req)
+	// if err != nil {
+	// 	setError(err.Error(), result)
+	// }
+	// defer resp.Body.Close()
 
-	buf = new(bytes.Buffer)
-	buf.ReadFrom(resp.Body)
-	sjson, err = simplejson.NewJson(buf.Bytes())
-	if err != nil {
-		setError(err.Error(), result)
-	}
-	response := map[string]interface{}{}
-	response, _ = sjson.Map()
+	// buf = new(bytes.Buffer)
+	// buf.ReadFrom(resp.Body)
+	// sjson, err = simplejson.NewJson(buf.Bytes())
+	// if err != nil {
+	// 	setError(err.Error(), result)
+	// }
+	// response := map[string]interface{}{}
+	// response, _ = sjson.Map()
 
-	if value, ok := response["1"]; ok {
-		balance, err := strconv.ParseFloat(value.(string), 64)
-		if (err == nil) && (balance > 10) {
-			needCoins = false
-		}
-	}
+	// if value, ok := response["1"]; ok {
+	// 	balance, err := strconv.ParseFloat(value.(string), 64)
+	// 	if (err == nil) && (balance > 10) {
+	// 		needCoins = false
+	// 	}
+	// }
 
-	if needCoins {
-		URL = Config().API.GetCoin
-		params := map[string]interface{}{
-			"addr":   address,
-			"amount": "10",
-		}
-		response = postByJSON(r, URL, params, result)
-	}
+	// if needCoins {
+	// 	URL = Config().API.GetCoin
+	// 	params := map[string]interface{}{
+	// 		"addr":   address,
+	// 		"amount": "10",
+	// 	}
+	// 	response = postByJSON(r, URL, params, result)
+	// }
 
-	URL = Config().API.PrepareProxy
-	params := map[string]string{
-		"delegates":     Config().Delegate,
-		"senderAddress": address,
-		"userKey":       address,
-	}
-	response = postByForm(r, URL, params, result)
-	rawTranscation := response["rawTx"].(string)
+	// URL = Config().API.PrepareProxy
+	// params := map[string]string{
+	// 	"delegates":     Config().Delegate,
+	// 	"senderAddress": address,
+	// 	"userKey":       address,
+	// }
+	// response = postByForm(r, URL, params, result)
+	// rawTranscation := response["rawTx"].(string)
 
-	URL = Config().API.SignTransaction
-	paramsJSON := map[string]interface{}{
-		"pri_key": privateKey,
-		"raw_tx":  rawTranscation,
-	}
-	response = postByJSON(r, URL, paramsJSON, result)
-	signedTranscation := response["result"].(string)
+	// URL = Config().API.SignTransaction
+	// paramsJSON := map[string]interface{}{
+	// 	"pri_key": privateKey,
+	// 	"raw_tx":  rawTranscation,
+	// }
+	// response = postByJSON(r, URL, paramsJSON, result)
+	// signedTranscation := response["result"].(string)
 
-	URL = Config().API.CreateProxy
-	params = map[string]string{
-		"rawTxSigned":   signedTranscation,
-		"senderAddress": address,
-		"userKey":       address,
-	}
-	response = postByForm(r, URL, params, result)
-	contract := response["contract"].(map[string]interface{})
-	proxy := contract["proxy"].(string)
-	user["proxy"] = proxy
-	user["controller"] = contract["controller"].(string)
-	user["recovery"] = contract["recovery"].(string)
+	// URL = Config().API.CreateProxy
+	// params = map[string]string{
+	// 	"rawTxSigned":   signedTranscation,
+	// 	"senderAddress": address,
+	// 	"userKey":       address,
+	// }
+	// response = postByForm(r, URL, params, result)
+	// contract := response["contract"].(map[string]interface{})
+	// proxy := contract["proxy"].(string)
+	// user["proxy"] = proxy
+	// user["controller"] = contract["controller"].(string)
+	// user["recovery"] = contract["recovery"].(string)
+	user["publicKey"] = "testPublickey"
+	user["address"] = "testAddress"
+	user["proxy"] = "testProxy"
 
-	account := map[string]string{}
+	// account := map[string]string{}
 	o := orm.NewOrm()
 	o.Using("vchain")
 	rows := []orm.Params{}
-	sql := "SELECT id FROM `vchain`.`users` WHERE publickey = ? LIMIT 1"
+	sql := "SELECT id FROM `idhub`.`users` WHERE publickey = ? LIMIT 1"
 	num, err := o.Raw(sql, user["publicKey"]).Values(&rows)
 	if err != nil {
 		setError(err.Error(), result)
 	} else if num == 0 {
 		now := getNow()
-		sql = "INSERT INTO `vchain`.`users`(`name`, `phone`,"
-		sql += "`privatekey`, `publickey`, `address`, `proxy`,"
-		sql += "`controller`, `recovery`, `created`, `updated`) VALUES("
-		sql += "?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-		_, err := o.Raw(sql, user["name"], user["phone"],
+		sql = "INSERT INTO `idhub`.`users`(`name`, `phone`, `email`,"
+		sql += "`country`, `region`, `locality`, `street_address`, `postal_code`,"
+		sql += "`privatekey`, `publickey`, `address`, `proxy`, `created`, `updated`) VALUES("
+		// sql += "`privatekey`, `publickey`, `address`, `proxy`,"
+		// sql += "`controller`, `recovery`, `created`, `updated`) VALUES("
+		sql += "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+		// sql += "?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+		// _, err := o.Raw(sql, user["name"], user["phone"], user["email"],
+		response, err := o.Raw(sql, user["name"], user["phone"], user["email"],
+			user["country"], user["region"], user["locality"], user["street_address"], user["postal_code"],
 			user["privateKey"], user["publicKey"],
-			user["address"], user["proxy"], user["controller"],
-			user["recovery"], now, now).Exec()
+			user["address"], user["proxy"], now, now).Exec()
+			// user["address"], user["proxy"], user["controller"],
+			// user["recovery"], now, now).Exec()
 		if err != nil {
 			setError(err.Error(), result)
-		} else {
-			account["name"] = user["name"].(string)
-			account["phone"] = user["phone"].(string)
-			account["privateKey"] = user["privateKey"].(string)
-			account["publicKey"] = user["publicKey"].(string)
-			account["address"] = user["address"].(string)
-			account["proxy"] = user["proxy"].(string)
-			account["controller"] = user["controller"].(string)
-			account["recovery"] = user["recovery"].(string)
+		// } else {
+		// 	account["name"] = user["name"].(string)
+		// 	account["phone"] = user["phone"].(string)
+		// 	account["privateKey"] = user["privateKey"].(string)
+		// 	account["publicKey"] = user["publicKey"].(string)
+		// 	account["address"] = user["address"].(string)
+		// 	account["proxy"] = user["proxy"].(string)
+		// 	account["controller"] = user["controller"].(string)
+		// 	account["recovery"] = user["recovery"].(string)
 		}
+		log.Println("response =", response)
+		// LastInsertId() (int64, error)
+		id, err := response.LastInsertId()
+		log.Println("id =", id)
+		if err != nil {
+			setError(err.Error(), result)
+		// } else {
+		// 	account["name"] = user["name"].(string)
+		// 	account["phone"] = user["phone"].(string)
+		// 	account["privateKey"] = user["privateKey"].(string)
+		// 	account["publicKey"] = user["publicKey"].(string)
+		// 	account["address"] = user["address"].(string)
+		// 	account["proxy"] = user["proxy"].(string)
+		// 	account["controller"] = user["controller"].(string)
+		// 	account["recovery"] = user["recovery"].(string)
+		} else {
+			item["userid"] = id
+			address := map[string]interface{}{}
+			address["country"] = user["country"]
+			address["region"] = user["region"]
+			address["locality"] = user["locality"]
+			address["street_address"] = user["street_address"]
+			address["postal_code"] = user["postal_code"]
+			item["address"] = address
+			item["name"] = user["name"]
+			item["phone"] = user["phone"]
+			item["email"] = user["email"]
+		}
+		// log.Println("response.LastInsertId() =", response.LastInsertId())
 	}
 
 	nodes := map[string]interface{}{}
-	result["user"] = user
+	// item := map[string]interface{}{}
+	// address := map[string]interface{}{}
+	// address["country"] = user["country"]
+	// address["region"] = user["region"]
+	// address["locality"] = user["locality"]
+	// address["street_address"] = user["street_address"]
+	// address["postal_code"] = user["postal_code"]
+	// item["address"] = address
+	// item["name"] = user["name"]
+	// item["phone"] = user["phone"]
+	// item["email"] = user["email"]
+	result["user"] = item
+	// result["user"] = user
 	nodes["result"] = result
 	rw.Header().Set("Access-Control-Allow-Origin", "*")
 	setResponse(rw, nodes)
@@ -408,10 +460,9 @@ func generateLoginToken(rw http.ResponseWriter, r *http.Request) {
 	if verification, ok := response["result"]; ok {
 		if verification == "True" {
 			// token = strings.Replace(uuid.NewV4().String(), "-", "", -1)
-			id, _ := uuid.NewV4()
-			token = strings.Replace(id.String(), "-", "", -1)
-			// token = strings.Replace(uuid.NewV4().String(), "-", "", -1)
-			// token = strings.Replace(uuid.MustNewV4().String(), "-", "", -1)
+			// id, _ := uuid.NewV4()
+			// token = strings.Replace(id.String(), "-", "", -1)
+			token = strings.Replace(uuid.NewV4().String(), "-", "", -1)
 			serverContext := map[string]string{
 				"clientName":      context["clientName"].(string),
 				"scope":           context["scope"].(string),
@@ -496,12 +547,12 @@ func validateUsersLoginJWT(rw http.ResponseWriter, r *http.Request) {
 	o := orm.NewOrm()
 	o.Using("vchain")
 	rows := []orm.Params{}
-	sql := "SELECT token FROM `vchain`.`tokens` WHERE token = ? LIMIT 1"
+	sql := "SELECT token FROM `idhub`.`tokens` WHERE token = ? LIMIT 1"
 	num, err := o.Raw(sql, token).Values(&rows)
 	if err != nil {
 		setError(err.Error(), result)
 	} else if num == 0 {
-		sql = "INSERT INTO `vchain`.`tokens`(`token`, `valid`,"
+		sql = "INSERT INTO `idhub`.`tokens`(`token`, `valid`,"
 		sql += "`proxy`, `scope`, `created`) VALUES("
 		sql += "?, ?, ?, ?, ?)"
 		_, err = o.Raw(sql, token, valid, proxy, scope, now).Exec()
@@ -509,7 +560,7 @@ func validateUsersLoginJWT(rw http.ResponseWriter, r *http.Request) {
 			setError(err.Error(), result)
 		}
 	} else if num > 0 {
-		sql := "UPDATE `vchain`.`tokens`"
+		sql := "UPDATE `idhub`.`tokens`"
 		sql += " SET `valid` = ?, `proxy` = ?, `scope` = ?,"
 		sql += " `created` = ? WHERE token = ?"
 		_, err = o.Raw(sql, valid, proxy, scope, now, token).Exec()
@@ -531,7 +582,7 @@ func getAttestationData(proxy string, attestationType string, result map[string]
 	o := orm.NewOrm()
 	o.Using("vchain")
 	rows := []orm.Params{}
-	sql := "SELECT id FROM `vchain`.`claims` WHERE proxy = ?"
+	sql := "SELECT id FROM `idhub`.`claims` WHERE proxy = ?"
 	sql += " AND status = ? AND type = ? LIMIT 1"
 	num, err := o.Raw(sql, proxy, "APPROVED", attestationType).Values(&rows)
 	if err != nil {
@@ -542,7 +593,7 @@ func getAttestationData(proxy string, attestationType string, result map[string]
 	}
 	if len(claimID) > 0 {
 		sql = "SELECT attestant, attestation, created"
-		sql += " FROM `vchain`.`attestations` WHERE claimid = ? LIMIT 1"
+		sql += " FROM `idhub`.`attestations` WHERE claimid = ? LIMIT 1"
 		num, err := o.Raw(sql, claimID).Values(&rows)
 		if err != nil {
 			setError(err.Error(), result)
@@ -563,7 +614,7 @@ func getUserData(proxy string, scope string, result map[string]interface{}) map[
 	rows := []orm.Params{}
 	sql := "SELECT name, idnumber, phone, email, privatekey, publickey, address"
 	sql += ", proxy, controller, recovery, ipfs, description, created"
-	sql += " FROM `vchain`.`users` WHERE proxy = ? LIMIT 1"
+	sql += " FROM `idhub`.`users` WHERE proxy = ? LIMIT 1"
 	num, err := o.Raw(sql, proxy).Values(&rows)
 	if err != nil {
 		setError(err.Error(), result)
@@ -624,7 +675,7 @@ func getResultForWebsocket(token string) map[string]interface{} {
 	o.Using("vchain")
 	rows := []orm.Params{}
 	sql := "SELECT token, valid, proxy, scope, created"
-	sql += " FROM `vchain`.`tokens` WHERE token = ? LIMIT 1"
+	sql += " FROM `idhub`.`tokens` WHERE token = ? LIMIT 1"
 	row := orm.Params{}
 	for i := 1; i <= 300; i++ {
 		num, err := o.Raw(sql, token).Values(&rows)
@@ -714,13 +765,13 @@ func createClaim(rw http.ResponseWriter, r *http.Request) {
 		o := orm.NewOrm()
 		o.Using("vchain")
 		rows := []orm.Params{}
-		sql := "SELECT id, proxy, type, status FROM `vchain`.`claims`"
+		sql := "SELECT id, proxy, type, status FROM `idhub`.`claims`"
 		sql += " WHERE proxy = ? AND type = ? AND claim = ? LIMIT 1"
 		num, err := o.Raw(sql, proxy, claimType, claimJWT).Values(&rows)
 		if err != nil {
 			setError(err.Error(), result)
 		} else if num == 0 {
-			sql = "INSERT INTO `vchain`.`claims`(`proxy`, `type`,"
+			sql = "INSERT INTO `idhub`.`claims`(`proxy`, `type`,"
 			sql += "`status`, `claim`, `created`, `updated`) VALUES("
 			sql += "?, ?, ?, ?, ?, ?)"
 			_, err = o.Raw(sql, proxy, claimType, "PENDING", claimJWT, now, now).Exec()
@@ -778,9 +829,9 @@ func generateClaimToken(rw http.ResponseWriter, r *http.Request) {
 	token := ""
 	if verification, ok := response["result"]; ok {
 		if verification == "True" {
-			// token = strings.Replace(uuid.NewV4().String(), "-", "", -1)
-			id, _ := uuid.NewV4()
-			token = strings.Replace(id.String(), "-", "", -1)
+			token = strings.Replace(uuid.NewV4().String(), "-", "", -1)
+			// id, _ := uuid.NewV4()
+			// token = strings.Replace(id.String(), "-", "", -1)
 			serverContext := map[string]string{
 				"clientName":      context["clientName"].(string),
 				"serverPublicKey": Config().JWT.ServerPublicKey,
@@ -838,7 +889,7 @@ func getClaims(rw http.ResponseWriter, req *http.Request) {
 	total := 0
 	o := orm.NewOrm()
 	o.Using("vchain")
-	sql := "SELECT COUNT(*) FROM `vchain`.`claims` WHERE status = ? AND type = ?"
+	sql := "SELECT COUNT(*) FROM `idhub`.`claims` WHERE status = ? AND type = ?"
 	var rows []orm.Params
 	num, err := o.Raw(sql, "PENDING", "ID").Values(&rows)
 	if err != nil {
@@ -857,7 +908,7 @@ func getClaims(rw http.ResponseWriter, req *http.Request) {
 	offset := (page - 1) * limit
 
 	sqlcmd := "SELECT id, status, claim, created "
-	sqlcmd += "FROM `vchain`.`claims` "
+	sqlcmd += "FROM `idhub`.`claims` "
 	sqlcmd += "WHERE status = ? AND type = ? "
 	sqlcmd += "ORDER BY created ASC LIMIT ? OFFSET ?"
 	num, err = o.Raw(sqlcmd, "PENDING", "ID", limit, offset).Values(&rows)
@@ -938,7 +989,7 @@ func createAttestation(rw http.ResponseWriter, r *http.Request) {
 		o := orm.NewOrm()
 		o.Using("vchain")
 		rows := []orm.Params{}
-		sql := "SELECT id FROM `vchain`.`claims`"
+		sql := "SELECT id FROM `idhub`.`claims`"
 		sql += " WHERE id = ? AND proxy = ? AND type = ? LIMIT 1"
 		num, err := o.Raw(sql, claimID, proxy, claimType).Values(&rows)
 		if err != nil {
@@ -946,7 +997,7 @@ func createAttestation(rw http.ResponseWriter, r *http.Request) {
 			setError(err.Error(), result)
 		} else if num > 0 {
 			now := getNow()
-			sql = "UPDATE `vchain`.`claims`"
+			sql = "UPDATE `idhub`.`claims`"
 			sql += " SET `status` = ?, `updated` = ?"
 			sql += " WHERE id = ?"
 			_, err = o.Raw(sql, status, now, claimID).Exec()
@@ -958,14 +1009,14 @@ func createAttestation(rw http.ResponseWriter, r *http.Request) {
 				item["updated"] = now
 				attested = true
 			}
-			sql = "SELECT id FROM `vchain`.`attestations`"
+			sql = "SELECT id FROM `idhub`.`attestations`"
 			sql += " WHERE claimid = ? AND attestant = ? LIMIT 1"
 			num, err := o.Raw(sql, claimID, attestant).Values(&rows)
 			if err != nil {
 				valid = false
 				setError(err.Error(), result)
 			} else if (num == 0) && (status == "APPROVED") {
-				sql = "INSERT INTO `vchain`.`attestations`(`claimid`, `attestant`,"
+				sql = "INSERT INTO `idhub`.`attestations`(`claimid`, `attestant`,"
 				sql += "`attestation`, `status`, `created`, `updated`) VALUES("
 				sql += "?, ?, ?, ?, ?, ?)"
 				_, err = o.Raw(sql, claimID, attestant, attestation, status, now, now).Exec()
@@ -977,7 +1028,7 @@ func createAttestation(rw http.ResponseWriter, r *http.Request) {
 					item["attestation"] = attestation
 				}
 			} else if num > 0 {
-				sql = "UPDATE `vchain`.`attestations`"
+				sql = "UPDATE `idhub`.`attestations`"
 				sql += " SET `attestation` = ?, `status` = ?, `updated` = ?"
 				sql += " WHERE claimid = ?"
 				_, err = o.Raw(sql, attestation, status, now, claimID).Exec()
@@ -1051,7 +1102,7 @@ func getAttestation(rw http.ResponseWriter, req *http.Request) {
 	if valid {
 		o := orm.NewOrm()
 		o.Using("vchain")
-		sql := "SELECT id, status FROM `vchain`.`claims`"
+		sql := "SELECT id, status FROM `idhub`.`claims`"
 		sql += " WHERE proxy = ? AND type = ? ORDER BY created DESC LIMIT 1"
 		var rows []orm.Params
 		num, err := o.Raw(sql, proxy, claimType).Values(&rows)
@@ -1062,7 +1113,7 @@ func getAttestation(rw http.ResponseWriter, req *http.Request) {
 			claimID := row["id"].(string)
 			status = row["status"].(string)
 			if status == "APPROVED" {
-				sql = "SELECT attestation FROM `vchain`.`attestations`"
+				sql = "SELECT attestation FROM `idhub`.`attestations`"
 				sql += " WHERE claimid = ? AND status = ? ORDER BY created DESC LIMIT 1"
 				num, err := o.Raw(sql, claimID, "ACTIVE").Values(&rows)
 				if err != nil {
@@ -1119,9 +1170,9 @@ func generateAuthorizationToken(rw http.ResponseWriter, r *http.Request) {
 	token := ""
 	if verification, ok := response["result"]; ok {
 		if verification == "True" {
-			// token = strings.Replace(uuid.NewV4().String(), "-", "", -1)
-			id, _ := uuid.NewV4()
-			token = strings.Replace(id.String(), "-", "", -1)
+			token = strings.Replace(uuid.NewV4().String(), "-", "", -1)
+			// id, _ := uuid.NewV4()
+			// token = strings.Replace(id.String(), "-", "", -1)
 			serverContext := map[string]string{
 				"requesterName":   context["requesterName"].(string),
 				"scope":           context["scope"].(string),
@@ -1206,12 +1257,12 @@ func validateUserAauthorizationJWT(rw http.ResponseWriter, r *http.Request) {
 	o := orm.NewOrm()
 	o.Using("vchain")
 	rows := []orm.Params{}
-	sql := "SELECT token FROM `vchain`.`tokens` WHERE token = ? LIMIT 1"
+	sql := "SELECT token FROM `idhub`.`tokens` WHERE token = ? LIMIT 1"
 	num, err := o.Raw(sql, token).Values(&rows)
 	if err != nil {
 		setError(err.Error(), result)
 	} else if num == 0 {
-		sql = "INSERT INTO `vchain`.`tokens`(`token`, `valid`,"
+		sql = "INSERT INTO `idhub`.`tokens`(`token`, `valid`,"
 		sql += "`proxy`, `scope`, `created`) VALUES("
 		sql += "?, ?, ?, ?, ?)"
 		_, err = o.Raw(sql, token, valid, proxy, scope, now).Exec()
@@ -1219,7 +1270,7 @@ func validateUserAauthorizationJWT(rw http.ResponseWriter, r *http.Request) {
 			setError(err.Error(), result)
 		}
 	} else if num > 0 {
-		sql := "UPDATE `vchain`.`tokens`"
+		sql := "UPDATE `idhub`.`tokens`"
 		sql += " SET `valid` = ?, `proxy` = ?, `scope` = ?,"
 		sql += " `created` = ? WHERE token = ?"
 		_, err = o.Raw(sql, valid, proxy, scope, now, token).Exec()
