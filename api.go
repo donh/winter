@@ -361,19 +361,19 @@ func createUser(rw http.ResponseWriter, r *http.Request) {
 			user["country"], user["region"], user["locality"], user["street_address"], user["postal_code"],
 			user["privateKey"], user["publicKey"],
 			user["address"], user["proxy"], now, now).Exec()
-			// user["address"], user["proxy"], user["controller"],
-			// user["recovery"], now, now).Exec()
+		// user["address"], user["proxy"], user["controller"],
+		// user["recovery"], now, now).Exec()
 		if err != nil {
 			setError(err.Error(), result)
-		// } else {
-		// 	account["name"] = user["name"].(string)
-		// 	account["phone"] = user["phone"].(string)
-		// 	account["privateKey"] = user["privateKey"].(string)
-		// 	account["publicKey"] = user["publicKey"].(string)
-		// 	account["address"] = user["address"].(string)
-		// 	account["proxy"] = user["proxy"].(string)
-		// 	account["controller"] = user["controller"].(string)
-		// 	account["recovery"] = user["recovery"].(string)
+			// } else {
+			// 	account["name"] = user["name"].(string)
+			// 	account["phone"] = user["phone"].(string)
+			// 	account["privateKey"] = user["privateKey"].(string)
+			// 	account["publicKey"] = user["publicKey"].(string)
+			// 	account["address"] = user["address"].(string)
+			// 	account["proxy"] = user["proxy"].(string)
+			// 	account["controller"] = user["controller"].(string)
+			// 	account["recovery"] = user["recovery"].(string)
 		}
 		log.Println("response =", response)
 		// LastInsertId() (int64, error)
@@ -381,15 +381,15 @@ func createUser(rw http.ResponseWriter, r *http.Request) {
 		log.Println("id =", id)
 		if err != nil {
 			setError(err.Error(), result)
-		// } else {
-		// 	account["name"] = user["name"].(string)
-		// 	account["phone"] = user["phone"].(string)
-		// 	account["privateKey"] = user["privateKey"].(string)
-		// 	account["publicKey"] = user["publicKey"].(string)
-		// 	account["address"] = user["address"].(string)
-		// 	account["proxy"] = user["proxy"].(string)
-		// 	account["controller"] = user["controller"].(string)
-		// 	account["recovery"] = user["recovery"].(string)
+			// } else {
+			// 	account["name"] = user["name"].(string)
+			// 	account["phone"] = user["phone"].(string)
+			// 	account["privateKey"] = user["privateKey"].(string)
+			// 	account["publicKey"] = user["publicKey"].(string)
+			// 	account["address"] = user["address"].(string)
+			// 	account["proxy"] = user["proxy"].(string)
+			// 	account["controller"] = user["controller"].(string)
+			// 	account["recovery"] = user["recovery"].(string)
 		} else {
 			item["userid"] = id
 			address := map[string]interface{}{}
@@ -462,7 +462,8 @@ func generateLoginToken(rw http.ResponseWriter, r *http.Request) {
 			// token = strings.Replace(uuid.NewV4().String(), "-", "", -1)
 			// id, _ := uuid.NewV4()
 			// token = strings.Replace(id.String(), "-", "", -1)
-			token = strings.Replace(uuid.NewV4().String(), "-", "", -1)
+			// token = strings.Replace(uuid.NewV4().String(), "-", "", -1)
+			token = strings.Replace(uuid.Must(uuid.NewV4()).String(), "-", "", -1)
 			serverContext := map[string]string{
 				"clientName":      context["clientName"].(string),
 				"scope":           context["scope"].(string),
@@ -829,7 +830,8 @@ func generateClaimToken(rw http.ResponseWriter, r *http.Request) {
 	token := ""
 	if verification, ok := response["result"]; ok {
 		if verification == "True" {
-			token = strings.Replace(uuid.NewV4().String(), "-", "", -1)
+			// token = strings.Replace(uuid.NewV4().String(), "-", "", -1)
+			token = strings.Replace(uuid.Must(uuid.NewV4()).String(), "-", "", -1)
 			// id, _ := uuid.NewV4()
 			// token = strings.Replace(id.String(), "-", "", -1)
 			serverContext := map[string]string{
@@ -1170,7 +1172,8 @@ func generateAuthorizationToken(rw http.ResponseWriter, r *http.Request) {
 	token := ""
 	if verification, ok := response["result"]; ok {
 		if verification == "True" {
-			token = strings.Replace(uuid.NewV4().String(), "-", "", -1)
+			// token = strings.Replace(uuid.NewV4().String(), "-", "", -1)
+			token = strings.Replace(uuid.Must(uuid.NewV4()).String(), "-", "", -1)
 			// id, _ := uuid.NewV4()
 			// token = strings.Replace(id.String(), "-", "", -1)
 			serverContext := map[string]string{
