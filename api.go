@@ -12,6 +12,7 @@ import (
 	"github.com/toolkits/file"
 	"log"
 	"math"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -134,38 +135,51 @@ func parseConfig(cfg string) {
 	setConfig(&c)
 }
 
-func setResponse(rw http.ResponseWriter, resp map[string]interface{}) {
-	if _, ok := resp["auth"]; ok {
-		delete(resp, "auth")
+// const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const letterBytes = "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const (
+	letterIdxBits = 6                    // 6 bits to represent a letter index
+	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
+	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
+)
+
+var src = rand.NewSource(time.Now().UnixNano())
+
+func randStringBytesMaskImprSrc(n int) string {
+	b := make([]byte, n)
+	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
+	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
+		if remain == 0 {
+			cache, remain = src.Int63(), letterIdxMax
+		}
+		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
+			b[i] = letterBytes[idx]
+			i--
+		}
+		cache >>= letterIdxBits
+		remain--
 	}
-	if _, ok := resp["method"]; ok {
-		delete(resp, "method")
-	}
-	if _, ok := resp["params"]; ok {
-		delete(resp, "params")
-	}
-	if _, ok := resp["result"]; ok {
-		result := resp["result"].(map[string]interface{})
+
+	return string(b)
+}
+
+func setResponse(rw http.ResponseWriter, resp interface{}) {
+	if val, ok := resp.(map[string]interface{})["result"]; ok {
+		result := val.(map[string]interface{})
 		if val, ok := result["error"]; ok {
 			errors := val.([]string)
 			if len(errors) > 0 {
-				delete(resp, "result")
-				resp["error"] = errors
+				delete(resp.(map[string]interface{}), "result")
+				resp.(map[string]interface{})["error"] = errors
 			} else {
-				delete(resp["result"].(map[string]interface{}), "error")
+				delete(resp.(map[string]interface{})["result"].(map[string]interface{}), "error")
 				if val, ok = result["items"]; ok {
-					resp["result"] = val
-				}
-				if val, ok = result["count"]; ok {
-					resp["count"] = val
-				}
-				if val, ok = result["anomalies"]; ok {
-					resp["anomalies"] = val
+					resp = val
 				}
 			}
 		}
 	}
-	resp["time"] = getNow()
+	// resp["time"] = getNow()
 	renderJSON(rw, resp)
 }
 
@@ -308,9 +322,9 @@ func createUser(rw http.ResponseWriter, r *http.Request) {
 
 	// URL = Config().API.PrepareProxy
 	// params := map[string]string{
-	// 	"delegates":     Config().Delegate,
+	// 	"delegates":	 Config().Delegate,
 	// 	"senderAddress": address,
-	// 	"userKey":       address,
+	// 	"userKey":	   address,
 	// }
 	// response = postByForm(r, URL, params, result)
 	// rawTranscation := response["rawTx"].(string)
@@ -327,7 +341,7 @@ func createUser(rw http.ResponseWriter, r *http.Request) {
 	// params = map[string]string{
 	// 	"rawTxSigned":   signedTranscation,
 	// 	"senderAddress": address,
-	// 	"userKey":       address,
+	// 	"userKey":	   address,
 	// }
 	// response = postByForm(r, URL, params, result)
 	// contract := response["contract"].(map[string]interface{})
@@ -1289,13 +1303,36 @@ func validateUserAauthorizationJWT(rw http.ResponseWriter, r *http.Request) {
 	setResponse(rw, nodes)
 }
 
+func savePayment(input map[string]interface{}) map[string]interface{} {
+	log.Println("savePayment() input =", input)
+	payment := input
+	// item := map[string]interface{}{}
+	// if val, ok := payment["transactions"]; ok {
+	if transactions, ok := payment["transactions"]; ok {
+		if transactions, ok := payment["transactions"]; ok {
+			log.Println("transactions =", transactions)
+			// payment["intent"] = val
+			delete(payment, "transactions")
+			log.Println("payment =", payment)
+			// delete(payment.(map[string]interface{}), "transactions")
+		}
+
+		log.Println("transactions =", transactions)
+		// payment["intent"] = val
+		delete(payment, "transactions")
+		log.Println("payment =", payment)
+		// delete(payment.(map[string]interface{}), "transactions")
+	}
+	return input
+}
+
 func setPayment(rw http.ResponseWriter, req *http.Request) {
 	log.Println("func setPayment()")
 	errors := []string{}
 	result := map[string]interface{}{}
 	result["error"] = errors
-	// item := map[string]string{}
-	item := map[string]interface{}{}
+	// item := map[string]interface{}{}
+	payment := map[string]interface{}{}
 
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(req.Body)
@@ -1305,28 +1342,164 @@ func setPayment(rw http.ResponseWriter, req *http.Request) {
 	}
 	payload, _ := sjson.Map()
 	log.Println("connection payload =", payload)
-	item["id"] = "IDH-1B56960729604235TKQQIYVY"
+	// item["id"] = "IDH-1B56960729604235TKQQIYVY"
+	// item["id"] = "PAY-1B56960729604235TKQQIYVY"
+	payment["id"] = "IDH-" + randStringBytesMaskImprSrc(24)
+	// item["payid"] = "IDH-" + randStringBytesMaskImprSrc(24)
+	// hash := randStringBytesMaskImprSrc(24)
+	log.Println("payment['id'] =", payment["id"])
+	// log.Println("hash =", "IDH-" + hash)
+
 	now := getNowUTC()
-	item["create_time"] = now
-	item["update_time"] = now
-	item["state"] = "created"
+	payment["create_time"] = now
+	payment["update_time"] = now
+	payment["state"] = "created"
 	if val, ok := payload["intent"]; ok {
-		log.Println("connection val =", val)
-		item["intent"] = val
+		payment["intent"] = val
 	}
+	if val, ok := payload["note_to_payer"]; ok {
+		payment["note_to_payer"] = val
+	}
+	// output = item
 	if val, ok := payload["payer"]; ok {
-		log.Println("connection val =", val)
-		item["payer"] = val
+		if payer, ok := val.(map[string]interface{})["payment_method"]; ok {
+			// arr := map[string]interface{}{}
+			// arr["payment_method"] = payer
+			// item["payer"] = arr
+			payment["payer"] = payer
+		}
 	}
-	if val, ok := payload["transactions"]; ok {
-		log.Println("connection val =", val)
-		item["transactions"] = val
-	}
-	nodes := map[string]interface{}{}
-	// item["status"] = status
-	// if len(attestation) > 0 {
-	// 	item["attestation"] = attestation
+
+	// if val, ok := payload["redirect_urls"]; ok {
+	// 	if returnUrl, ok := val.(map[string]interface{})["return_url"]; ok {
+	// 		item["return_url"] = returnUrl
+	// 	}
+	// 	if cancelUrl, ok := val.(map[string]interface{})["cancel_url"]; ok {
+	// 		item["cancel_url"] = cancelUrl
+	// 	}
 	// }
+	// log.Println("item =", item)
+	// log.Println("output =", output)
+
+	transactions := []interface{}{}
+	if val, ok := payload["transactions"]; ok {
+		transaction := map[string]interface{}{}
+		for _, row := range val.([]interface{}) {
+			// transaction["payid"] = item["id"]
+			if s, ok := row.(map[string]interface{})["amount"]; ok {
+				amount := map[string]interface{}{}
+				if t, ok := s.(map[string]interface{})["total"]; ok {
+					amount["total"] = t
+				}
+				if t, ok := s.(map[string]interface{})["currency"]; ok {
+					amount["currency"] = t
+				}
+				if t, ok := s.(map[string]interface{})["details"]; ok {
+					log.Println("t =", t)
+					details := map[string]interface{}{}
+					details["subtotal"] = t.(map[string]interface{})["subtotal"]
+					details["tax"] = t.(map[string]interface{})["tax"]
+					details["shipping"] = t.(map[string]interface{})["shipping"]
+					details["handling_fee"] = t.(map[string]interface{})["handling_fee"]
+					details["shipping_discount"] = t.(map[string]interface{})["shipping_discount"]
+					details["insurance"] = t.(map[string]interface{})["insurance"]
+					amount["details"] = details
+					// amount["subtotal"] = t.(map[string]interface{})["subtotal"]
+					// amount["tax"] = t.(map[string]interface{})["tax"]
+					// amount["shipping"] = t.(map[string]interface{})["shipping"]
+					// amount["handling_fee"] = t.(map[string]interface{})["handling_fee"]
+					// amount["shipping_discount"] = t.(map[string]interface{})["shipping_discount"]
+					// amount["insurance"] = t.(map[string]interface{})["insurance"]
+				}
+				log.Println("amount =", amount)
+				transaction["amount"] = amount
+			}
+			if s, ok := row.(map[string]interface{})["description"]; ok {
+				transaction["description"] = s
+			}
+			if s, ok := row.(map[string]interface{})["custom"]; ok {
+				transaction["custom"] = s
+			}
+			if s, ok := row.(map[string]interface{})["invoice_number"]; ok {
+				transaction["invoice_number"] = s
+			}
+			// if s, ok := row.(map[string]interface{})["payment_options"]; ok {
+			// 	if paymentMethod, ok := s.(map[string]interface{})["allowed_payment_method"]; ok {
+			// 		transaction["payment_options"] = paymentMethod
+			// 	}
+			// }
+			if s, ok := row.(map[string]interface{})["soft_descriptor"]; ok {
+				transaction["soft_descriptor"] = s
+			}
+			if s, ok := row.(map[string]interface{})["item_list"]; ok {
+				if t, ok := s.(map[string]interface{})["items"]; ok {
+					items := []interface{}{}
+					obj := map[string]interface{}{}
+					for _, u := range t.([]interface{}) {
+						if v, ok := u.(map[string]interface{})["name"]; ok {
+							obj["name"] = v
+						}
+						if v, ok := u.(map[string]interface{})["description"]; ok {
+							obj["description"] = v
+						}
+						if v, ok := u.(map[string]interface{})["quantity"]; ok {
+							obj["quantity"] = v
+						}
+						if v, ok := u.(map[string]interface{})["price"]; ok {
+							obj["price"] = v
+						}
+						if v, ok := u.(map[string]interface{})["tax"]; ok {
+							obj["tax"] = v
+						}
+						if v, ok := u.(map[string]interface{})["sku"]; ok {
+							obj["sku"] = v
+						}
+						if v, ok := u.(map[string]interface{})["currency"]; ok {
+							obj["currency"] = v
+						}
+						items = append(items, obj)
+					}
+					log.Println("items =", items)
+					transaction["items"] = items
+				}
+				if t, ok := s.(map[string]interface{})["shipping_address"]; ok {
+					shippingAddress := map[string]interface{}{}
+					if u, ok := t.(map[string]interface{})["recipient_name"]; ok {
+						shippingAddress["recipient_name"] = u
+					}
+					if u, ok := t.(map[string]interface{})["line1"]; ok {
+						shippingAddress["line1"] = u
+					}
+					if u, ok := t.(map[string]interface{})["line2"]; ok {
+						shippingAddress["line2"] = u
+					}
+					if u, ok := t.(map[string]interface{})["city"]; ok {
+						shippingAddress["city"] = u
+					}
+					if u, ok := t.(map[string]interface{})["country_code"]; ok {
+						shippingAddress["country_code"] = u
+					}
+					if u, ok := t.(map[string]interface{})["postal_code"]; ok {
+						shippingAddress["postal_code"] = u
+					}
+					if u, ok := t.(map[string]interface{})["phone"]; ok {
+						shippingAddress["phone"] = u
+					}
+					if u, ok := t.(map[string]interface{})["state"]; ok {
+						shippingAddress["state"] = u
+					}
+					log.Println("shippingAddress =", shippingAddress)
+					transaction["shipping_address"] = shippingAddress
+				}
+			}
+			transactions = append(transactions, transaction)
+		}
+	}
+	log.Println("transactions =", transactions)
+	payment["transactions"] = transactions
+	item := savePayment(payment)
+
+	nodes := map[string]interface{}{}
 	result["items"] = item
 	nodes["result"] = result
 	rw.Header().Set("Access-Control-Allow-Origin", "*")

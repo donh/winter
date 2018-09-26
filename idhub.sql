@@ -30,6 +30,85 @@ CREATE TABLE `idhub`.`users` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
+DROP TABLE IF EXISTS `idhub`.`payments`;
+CREATE TABLE `idhub`.`payments` (
+  `id` int(10) NOT NULL AUTO_INCREMENT,
+  `payid` varchar(30) NOT NULL,
+  `intent` varchar(10) DEFAULT NULL,
+  `payer` varchar(10) DEFAULT NULL,
+  `state` varchar(20) DEFAULT NULL,
+  `note_to_payer` varchar(200) DEFAULT NULL,
+  `return_url` varchar(150) DEFAULT NULL,
+  `cancel_url` varchar(150) DEFAULT NULL,
+  `created` datetime NOT NULL,
+  `updated` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+DROP TABLE IF EXISTS `idhub`.`transactions`;
+CREATE TABLE `idhub`.`transactions` (
+  `id` int(10) NOT NULL AUTO_INCREMENT,
+  `payid` varchar(30) NOT NULL,
+  `amount` DECIMAL(13,2) DEFAULT NULL,
+  `custom` varchar(30) DEFAULT NULL,
+  `description` varchar(50) DEFAULT NULL,
+  `invoice_number` varchar(15) DEFAULT NULL,
+  `soft_descriptor` varchar(15) DEFAULT NULL,
+  `created` datetime NOT NULL,
+  `updated` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+DROP TABLE IF EXISTS `idhub`.`amounts`;
+CREATE TABLE `idhub`.`amounts` (
+  `id` int(10) NOT NULL AUTO_INCREMENT,
+  `txid` int(10) NOT NULL,
+  `currency` varchar(5) NOT NULL,
+  `total` DECIMAL(13,2) NOT NULL,
+  `subtotal` DECIMAL(13,2) NOT NULL,
+  `handling_fee` DECIMAL(13,2) DEFAULT NULL,
+  `insurance` DECIMAL(13,2) DEFAULT NULL,
+  `shipping` DECIMAL(13,2) DEFAULT NULL,
+  `shipping_discount` DECIMAL(13,2) DEFAULT NULL,
+  `tax` DECIMAL(13,2) DEFAULT NULL,
+  `created` datetime NOT NULL,
+  `updated` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+DROP TABLE IF EXISTS `idhub`.`items`;
+CREATE TABLE `idhub`.`items` (
+  `id` int(10) NOT NULL AUTO_INCREMENT,
+  `txid` int(10) NOT NULL,
+  `currency` varchar(5) NOT NULL,
+  `description` varchar(100) DEFAULT NULL,
+  `name` varchar(50) NOT NULL,
+  `price` DECIMAL(13,2) NOT NULL,
+  `quantity` int(8) NOT NULL,
+  `sku` varchar(30) DEFAULT NULL,
+  `tax` DECIMAL(13,2) DEFAULT NULL,
+  `created` datetime NOT NULL,
+  `updated` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+DROP TABLE IF EXISTS `idhub`.`"shipping`;
+CREATE TABLE `idhub`.`shipping` (
+  `id` int(10) NOT NULL AUTO_INCREMENT,
+  `txid` int(10) NOT NULL,
+  `city` varchar(20) NOT NULL,
+  `country_code` varchar(3) NOT NULL,
+  `line1` varchar(50) DEFAULT NULL,
+  `line2` varchar(50) DEFAULT NULL,
+  `phone` varchar(20) DEFAULT NULL,
+  `postal_code` varchar(8) DEFAULT NULL,
+  `recipient_name` varchar(30) NOT NULL,
+  `state` varchar(20) DEFAULT NULL,
+  `created` datetime NOT NULL,
+  `updated` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
 DROP TABLE IF EXISTS `idhub`.`tokens`;
 CREATE TABLE `idhub`.`tokens` (
   `token` varchar(40) NOT NULL,
