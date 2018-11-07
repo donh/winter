@@ -92,7 +92,7 @@ CREATE TABLE `idhub`.`items` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
-DROP TABLE IF EXISTS `idhub`.`"shipping`;
+DROP TABLE IF EXISTS `idhub`.`shipping`;
 CREATE TABLE `idhub`.`shipping` (
   `id` int(10) NOT NULL AUTO_INCREMENT,
   `txid` int(10) NOT NULL,

@@ -22,6 +22,19 @@ import (
 	"time"
 )
 
+// type Payment struct {
+// 	Id          int
+// 	Payid       int
+// 	Intent      string
+// 	Payer       string
+// 	State       string
+// 	NoteToPayer string
+// 	ReturnUrl   string
+// 	CancelUrl   string
+// 	Created     string
+// 	Updated     string
+// }
+
 // APIConfig ...
 type APIConfig struct {
 	CreateProxy         string `json:"createProxy"`
@@ -136,7 +149,9 @@ func parseConfig(cfg string) {
 }
 
 // const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-const letterBytes = "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+// const letterBytes = "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+// const letterBytes = "1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const letterBytes = "abcdefghijklmnopqrstuvwxyz1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 const (
 	letterIdxBits = 6                    // 6 bits to represent a letter index
 	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
@@ -1303,25 +1318,139 @@ func validateUserAauthorizationJWT(rw http.ResponseWriter, r *http.Request) {
 	setResponse(rw, nodes)
 }
 
-func savePayment(input map[string]interface{}) map[string]interface{} {
+func savePayment(input map[string]interface{}, result map[string]interface{}) map[string]interface{} {
 	log.Println("savePayment() input =", input)
 	payment := input
-	// item := map[string]interface{}{}
-	// if val, ok := payment["transactions"]; ok {
 	if transactions, ok := payment["transactions"]; ok {
-		if transactions, ok := payment["transactions"]; ok {
-			log.Println("transactions =", transactions)
-			// payment["intent"] = val
-			delete(payment, "transactions")
-			log.Println("payment =", payment)
-			// delete(payment.(map[string]interface{}), "transactions")
+		log.Println("YES transactions =", transactions)
+		amounts := []interface{}{}
+		itemsList := []interface{}{}
+		shippings := []interface{}{}
+		for _, transaction := range transactions.([]interface{}) {
+			if amount, ok := transaction.(map[string]interface{})["amount"]; ok {
+				log.Println("amount =", amount)
+				details := amount.(map[string]interface{})["details"]
+				item := map[string]interface{}{}
+				item["currency"] = amount.(map[string]interface{})["currency"]
+				item["total"] = amount.(map[string]interface{})["total"]
+				item["handling_fee"] = details.(map[string]interface{})["handling_fee"]
+				item["insurance"] = details.(map[string]interface{})["insurance"]
+				item["shipping"] = details.(map[string]interface{})["shipping"]
+				item["shipping_discount"] = details.(map[string]interface{})["shipping_discount"]
+				item["subtotal"] = details.(map[string]interface{})["subtotal"]
+				item["tax"] = details.(map[string]interface{})["tax"]
+				amounts = append(amounts, item)
+				transaction.(map[string]interface{})["amount"] = amount.(map[string]interface{})["total"]
+			}
+			if items, ok := transaction.(map[string]interface{})["items"]; ok {
+				log.Println("items =", items)
+				delete(transaction.(map[string]interface{}), "items")
+				itemsList = append(itemsList, items)
+			}
+			if shippingAddress, ok := transaction.(map[string]interface{})["shipping_address"]; ok {
+				log.Println("shipping_address =", shippingAddress)
+				delete(transaction.(map[string]interface{}), "shipping_address")
+				shippings = append(shippings, shippingAddress)
+			}
+			log.Println("transaction =", transaction)
 		}
-
 		log.Println("transactions =", transactions)
-		// payment["intent"] = val
 		delete(payment, "transactions")
 		log.Println("payment =", payment)
-		// delete(payment.(map[string]interface{}), "transactions")
+
+		o := orm.NewOrm()
+		o.Using("idhub")
+		rows := []orm.Params{}
+		sql := "SELECT id FROM `idhub`.`payments` WHERE payid = ? LIMIT 1"
+		log.Println("sql =", sql)
+		num, err := o.Raw(sql, payment["id"]).Values(&rows)
+		if err != nil {
+			setError(err.Error(), result)
+		} else if num == 0 {
+			now := getNow()
+			sql = "INSERT INTO `idhub`.`payments`(`payid`, `intent`, `payer`,"
+			sql += "`state`, `note_to_payer`, `return_url`, `cancel_url`,"
+			sql += "`created`, `updated`) VALUES("
+			sql += "?, ?, ?, ?, ?, ?, ?, ?, ?)"
+			log.Println("sql =", sql)
+			response, err := o.Raw(sql, payment["id"], payment["intent"], payment["payer"],
+				"created", payment["note_to_payer"], payment["return_url"], payment["cancel_url"],
+				now, now).Exec()
+			log.Println("response =", response)
+			if err != nil {
+				setError(err.Error(), result)
+			} else {
+				for key, transaction := range transactions.([]interface{}) {
+					sql = "INSERT INTO `idhub`.`transactions`(`payid`, `amount`, `custom`,"
+					sql += "`description`, `invoice_number`, `soft_descriptor`,"
+					sql += "`created`, `updated`) VALUES("
+					sql += "?, ?, ?, ?, ?, ?, ?, ?)"
+					log.Println("sql =", sql)
+					response, err := o.Raw(sql, payment["id"], transaction.(map[string]interface{})["amount"],
+						transaction.(map[string]interface{})["custom"],
+						transaction.(map[string]interface{})["description"],
+						transaction.(map[string]interface{})["invoice_number"],
+						transaction.(map[string]interface{})["soft_descriptor"], now, now).Exec()
+					log.Println("response =", response)
+					if err != nil {
+						setError(err.Error(), result)
+					} else {
+						transactionID, err := response.LastInsertId()
+						if err != nil {
+							setError(err.Error(), result)
+						} else {
+							log.Println("transactionID =", transactionID)
+							shipping := shippings[key].(map[string]interface{})
+							sql = "INSERT INTO `idhub`.`shipping`(`txid`, `city`, `country_code`,"
+							sql += "`line1`, `line2`, `phone`, `postal_code`, `recipient_name`, `state`,"
+							sql += "`created`, `updated`) VALUES("
+							sql += "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+							log.Println("sql =", sql)
+							response, err := o.Raw(sql, transactionID, shipping["city"], shipping["country_code"],
+								shipping["line1"], shipping["line2"], shipping["phone"], shipping["postal_code"],
+								shipping["recipient_name"], shipping["state"], now, now).Exec()
+							log.Println("response =", response)
+							if err != nil {
+								setError(err.Error(), result)
+							}
+							amount := amounts[key].(map[string]interface{})
+							sql = "INSERT INTO `idhub`.`amounts`(`txid`, `currency`, `total`,"
+							sql += "`subtotal`, `handling_fee`, `insurance`, `shipping`,"
+							sql += "`shipping_discount`, `tax`, `created`, `updated`) VALUES("
+							sql += "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+							log.Println("sql =", sql)
+							log.Println("amount =", amount)
+							response, err = o.Raw(sql, transactionID, amount["currency"], amount["total"],
+								amount["subtotal"], amount["handling_fee"], amount["insurance"],
+								amount["shipping"], amount["shipping_discount"], amount["tax"], now, now).Exec()
+							log.Println("response =", response)
+							if err != nil {
+								setError(err.Error(), result)
+							}
+							items := itemsList[key].([]interface{})
+							log.Println("items =", items)
+							for _, item := range items {
+								sql = "INSERT INTO `idhub`.`items`(`txid`, `currency`, `description`,"
+								sql += "`name`, `price`, `quantity`, `sku`, `tax`,"
+								sql += "`created`, `updated`) VALUES("
+								sql += "?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+								log.Println("sql =", sql)
+								log.Println("item =", item)
+								response, err = o.Raw(sql, transactionID, item.(map[string]interface{})["currency"],
+									item.(map[string]interface{})["description"],
+									item.(map[string]interface{})["name"], item.(map[string]interface{})["price"],
+									item.(map[string]interface{})["quantity"], item.(map[string]interface{})["sku"],
+									item.(map[string]interface{})["tax"], now, now).Exec()
+								log.Println("response =", response)
+								if err != nil {
+									setError(err.Error(), result)
+								}
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 	return input
 }
@@ -1344,11 +1473,10 @@ func setPayment(rw http.ResponseWriter, req *http.Request) {
 	log.Println("connection payload =", payload)
 	// item["id"] = "IDH-1B56960729604235TKQQIYVY"
 	// item["id"] = "PAY-1B56960729604235TKQQIYVY"
-	payment["id"] = "IDH-" + randStringBytesMaskImprSrc(24)
+	// payment["id"] = "IDH-" + randStringBytesMaskImprSrc(24)
+	payment["id"] = "IDH-" + randStringBytesMaskImprSrc(15)
 	// item["payid"] = "IDH-" + randStringBytesMaskImprSrc(24)
-	// hash := randStringBytesMaskImprSrc(24)
 	log.Println("payment['id'] =", payment["id"])
-	// log.Println("hash =", "IDH-" + hash)
 
 	now := getNowUTC()
 	payment["create_time"] = now
@@ -1363,29 +1491,23 @@ func setPayment(rw http.ResponseWriter, req *http.Request) {
 	// output = item
 	if val, ok := payload["payer"]; ok {
 		if payer, ok := val.(map[string]interface{})["payment_method"]; ok {
-			// arr := map[string]interface{}{}
-			// arr["payment_method"] = payer
-			// item["payer"] = arr
 			payment["payer"] = payer
 		}
 	}
 
-	// if val, ok := payload["redirect_urls"]; ok {
-	// 	if returnUrl, ok := val.(map[string]interface{})["return_url"]; ok {
-	// 		item["return_url"] = returnUrl
-	// 	}
-	// 	if cancelUrl, ok := val.(map[string]interface{})["cancel_url"]; ok {
-	// 		item["cancel_url"] = cancelUrl
-	// 	}
-	// }
-	// log.Println("item =", item)
-	// log.Println("output =", output)
+	if val, ok := payload["redirect_urls"]; ok {
+		if returnURL, ok := val.(map[string]interface{})["return_url"]; ok {
+			payment["return_url"] = returnURL
+		}
+		if cancelURL, ok := val.(map[string]interface{})["cancel_url"]; ok {
+			payment["cancel_url"] = cancelURL
+		}
+	}
 
 	transactions := []interface{}{}
 	if val, ok := payload["transactions"]; ok {
 		transaction := map[string]interface{}{}
 		for _, row := range val.([]interface{}) {
-			// transaction["payid"] = item["id"]
 			if s, ok := row.(map[string]interface{})["amount"]; ok {
 				amount := map[string]interface{}{}
 				if t, ok := s.(map[string]interface{})["total"]; ok {
@@ -1404,12 +1526,6 @@ func setPayment(rw http.ResponseWriter, req *http.Request) {
 					details["shipping_discount"] = t.(map[string]interface{})["shipping_discount"]
 					details["insurance"] = t.(map[string]interface{})["insurance"]
 					amount["details"] = details
-					// amount["subtotal"] = t.(map[string]interface{})["subtotal"]
-					// amount["tax"] = t.(map[string]interface{})["tax"]
-					// amount["shipping"] = t.(map[string]interface{})["shipping"]
-					// amount["handling_fee"] = t.(map[string]interface{})["handling_fee"]
-					// amount["shipping_discount"] = t.(map[string]interface{})["shipping_discount"]
-					// amount["insurance"] = t.(map[string]interface{})["insurance"]
 				}
 				log.Println("amount =", amount)
 				transaction["amount"] = amount
@@ -1497,7 +1613,7 @@ func setPayment(rw http.ResponseWriter, req *http.Request) {
 	}
 	log.Println("transactions =", transactions)
 	payment["transactions"] = transactions
-	item := savePayment(payment)
+	item := savePayment(payment, result)
 
 	nodes := map[string]interface{}{}
 	result["items"] = item
@@ -1511,19 +1627,9 @@ func getUser(rw http.ResponseWriter, req *http.Request) {
 	errors := []string{}
 	result := map[string]interface{}{}
 	result["error"] = errors
-	// item := map[string]string{}
-	// item := map[string]interface{}{}
 
 	Bearer := ""
 	if authorization, ok := req.Header["Authorization"]; ok {
-		// log.Println("Authorization value =", value)
-		// log.Println("Authorization authorization =", authorization)
-		// log.Println("TypeOf value =", reflect.TypeOf(value))
-		// log.Println("TypeOf authorization =", reflect.TypeOf(authorization))
-		// log.Println("Length Of value =", len(value))
-		// log.Println("Length Of authorization =", len(authorization))
-
-		// if str, ok := authorization[0]; ok {
 		if len(authorization) > 0 {
 			log.Println("authorization[0] =", authorization[0])
 			log.Println("TypeOf authorization[0] =", reflect.TypeOf(authorization[0]))
@@ -1532,9 +1638,6 @@ func getUser(rw http.ResponseWriter, req *http.Request) {
 				Bearer = strings.Replace(str, "Bearer ", "", 1)
 			}
 		}
-		// log.Println("Authorization value[0] =", value[0])
-		// log.Println("Authorization value[1] =", value[1])
-		// item["payer"] = val
 	}
 
 	// for field, value := range req.Header {
@@ -1611,6 +1714,57 @@ func getUser(rw http.ResponseWriter, req *http.Request) {
 	setResponse(rw, nodes)
 }
 
+func getPayment(rw http.ResponseWriter, req *http.Request) {
+	log.Println("func getPayment()")
+	errors := []string{}
+	result := map[string]interface{}{}
+	result["error"] = errors
+	item := map[string]interface{}{}
+
+	paymentID := ""
+	if strings.HasPrefix(req.URL.Path, paymentPath) {
+		paymentID = req.URL.Path[len(paymentPath):]
+	}
+	log.Println("paymentID:", paymentID)
+	o := orm.NewOrm()
+	o.Using("idhub")
+	rows := []orm.Params{}
+	sql := "SELECT intent, payer, state, created, updated FROM `idhub`.`payments` WHERE payid = ? LIMIT 1"
+	_, err := o.Raw(sql, paymentID).Values(&rows)
+	if err != nil {
+		setError(err.Error(), result)
+	} else {
+		row := rows[0]
+		log.Println("rows =", rows)
+		item["id"] = paymentID
+		item["create_time"] = row["created"]
+		item["update_time"] = row["updated"]
+		item["intent"] = row["intent"]
+		item["state"] = row["state"]
+		payer := map[string]interface{}{}
+		payer["payment_method"] = row["payer"]
+		item["payer"] = payer
+		// {
+		//  "id": "PAY-0US81985GW1191216KOY7OXA",
+		//  "create_time": "2017-06-30T23:48:44Z",
+		//  "update_time": "2017-06-30T23:49:27Z",
+		//  "state": "approved",
+		//  "intent": "order",
+		//  "payer": {
+		//    "payment_method": "paypal"
+		//  },
+		//  "tran
+	}
+	log.Println("item =", item)
+	nodes := map[string]interface{}{}
+	result["items"] = item
+	nodes["result"] = result
+	rw.Header().Set("Access-Control-Allow-Origin", "*")
+	setResponse(rw, nodes)
+}
+
+const paymentPath = "/api/v1/payments/payment/"
+
 func main() {
 	cfg := flag.String("c", "cfg.json", "specify config file")
 	flag.Parse()
@@ -1647,6 +1801,8 @@ func main() {
 		so.Emit("error", err)
 	})
 
+	// https://developer.paypal.com/docs/api/payments/v1/#payment_get
+	http.HandleFunc(paymentPath, getPayment)
 	// https://developer.paypal.com/docs/api/payments/v1/
 	http.HandleFunc("/api/v1/payments/payment", setPayment)
 	// https://developer.paypal.com/docs/api/identity/v1/
