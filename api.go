@@ -364,6 +364,7 @@ func createUser(rw http.ResponseWriter, r *http.Request) {
 	// user["proxy"] = proxy
 	// user["controller"] = contract["controller"].(string)
 	// user["recovery"] = contract["recovery"].(string)
+	user["privateKey"] = "testPrivateKey"
 	user["publicKey"] = "testPublickey"
 	user["address"] = "testAddress"
 	user["proxy"] = "testProxy"
@@ -372,24 +373,32 @@ func createUser(rw http.ResponseWriter, r *http.Request) {
 	o := orm.NewOrm()
 	o.Using("vchain")
 	rows := []orm.Params{}
-	sql := "SELECT id FROM `idhub`.`users` WHERE publickey = ? LIMIT 1"
-	num, err := o.Raw(sql, user["publicKey"]).Values(&rows)
+	// sql := "SELECT id FROM `idhub`.`users` WHERE publickey = ? LIMIT 1"
+	sql := "SELECT id FROM `idhub`.`users` WHERE email = ? LIMIT 1"
+	// num, err := o.Raw(sql, user["publicKey"]).Values(&rows)
+	num, err := o.Raw(sql, user["email"]).Values(&rows)
 	if err != nil {
 		setError(err.Error(), result)
-	} else if num == 0 {
+		// TEMP
+		// } else if num == 0 {
+		// TEMP
+	} else if num >= 0 {
 		now := getNow()
-		sql = "INSERT INTO `idhub`.`users`(`name`, `phone`, `email`,"
-		sql += "`country`, `region`, `locality`, `street_address`, `postal_code`,"
-		sql += "`privatekey`, `publickey`, `address`, `proxy`, `created`, `updated`) VALUES("
+		sql = "INSERT INTO `idhub`.`users`(`firstName`, `lastName`, `phone`, `email`,"
+		sql += "`country`, `region`, `city`, `street`, `zip`,"
+		sql += "`privatekey`, `publickey`, `wallet`, `proxy`, `created`, `updated`) VALUES("
+		// sql = "INSERT INTO `idhub`.`users`(`name`, `phone`, `email`,"
+		// sql += "`country`, `region`, `locality`, `street_address`, `postal_code`,"
+		// sql += "`privatekey`, `publickey`, `address`, `proxy`, `created`, `updated`) VALUES("
 		// sql += "`privatekey`, `publickey`, `address`, `proxy`,"
 		// sql += "`controller`, `recovery`, `created`, `updated`) VALUES("
-		sql += "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+		sql += "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 		// sql += "?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 		// _, err := o.Raw(sql, user["name"], user["phone"], user["email"],
-		response, err := o.Raw(sql, user["name"], user["phone"], user["email"],
-			user["country"], user["region"], user["locality"], user["street_address"], user["postal_code"],
+		response, err := o.Raw(sql, user["firstName"], user["lastName"], user["phone"], user["email"],
+			user["country"], user["region"], user["city"], user["street"], user["zip"],
 			user["privateKey"], user["publicKey"],
-			user["address"], user["proxy"], now, now).Exec()
+			user["wallet"], user["proxy"], now, now).Exec()
 		// user["address"], user["proxy"], user["controller"],
 		// user["recovery"], now, now).Exec()
 		if err != nil {
@@ -1622,11 +1631,18 @@ func setPayment(rw http.ResponseWriter, req *http.Request) {
 	setResponse(rw, nodes)
 }
 
-func getUser(rw http.ResponseWriter, req *http.Request) {
+// func getUser(rw http.ResponseWriter, req *http.Request) {
+func getUserPayPal(rw http.ResponseWriter, req *http.Request) {
 	log.Println("func getUser()")
 	errors := []string{}
 	result := map[string]interface{}{}
 	result["error"] = errors
+
+	email := ""
+	if strings.HasPrefix(req.URL.Path, userPath) {
+		email = req.URL.Path[len(userPath):]
+	}
+	log.Println("email:", email)
 
 	Bearer := ""
 	if authorization, ok := req.Header["Authorization"]; ok {
@@ -1714,6 +1730,67 @@ func getUser(rw http.ResponseWriter, req *http.Request) {
 	setResponse(rw, nodes)
 }
 
+func getUser(rw http.ResponseWriter, req *http.Request) {
+	log.Println("func getUser()")
+	errors := []string{}
+	result := map[string]interface{}{}
+	result["error"] = errors
+	item := map[string]interface{}{}
+
+	email := ""
+	if strings.HasPrefix(req.URL.Path, userPath) {
+		email = req.URL.Path[len(userPath):]
+	}
+	log.Println("email:", email)
+	o := orm.NewOrm()
+	o.Using("idhub")
+	rows := []orm.Params{}
+	// sql := "SELECT firstName, lastName, email, created, updated FROM `idhub`.`users` WHERE email = ? LIMIT 1"
+	sql := "SELECT firstName, lastName, email, phone, country, region, city, street, zip, "
+	sql += "wallet, created, updated FROM `idhub`.`users` WHERE email = ? LIMIT 1"
+	_, err := o.Raw(sql, email).Values(&rows)
+	if err != nil {
+		setError(err.Error(), result)
+	} else {
+		row := rows[0]
+		log.Println("rows =", rows)
+		item["firstName"] = row["firstName"]
+		item["lastName"] = row["lastName"]
+		item["email"] = email
+		item["phone"] = row["phone"]
+		item["country"] = row["country"]
+		item["region"] = row["region"]
+		item["city"] = row["city"]
+		item["street"] = row["street"]
+		item["zip"] = row["zip"]
+		item["wallet"] = row["wallet"]
+		item["create_time"] = row["created"]
+		item["update_time"] = row["updated"]
+		// item["intent"] = row["intent"]
+		// item["state"] = row["state"]
+		// payer := map[string]interface{}{}
+		// payer["payment_method"] = row["payer"]
+		// item["payer"] = payer
+		// {
+		//  "id": "PAY-0US81985GW1191216KOY7OXA",
+		//  "create_time": "2017-06-30T23:48:44Z",
+		//  "update_time": "2017-06-30T23:49:27Z",
+		//  "state": "approved",
+		//  "intent": "order",
+		//  "payer": {
+		//    "payment_method": "paypal"
+		//  },
+		//  "tran
+	}
+	log.Println("item =", item)
+	nodes := map[string]interface{}{}
+	result["items"] = item
+	nodes["result"] = result
+	rw.Header().Set("Access-Control-Allow-Origin", "*")
+	setResponse(rw, nodes)
+}
+
+
 func getPayment(rw http.ResponseWriter, req *http.Request) {
 	log.Println("func getPayment()")
 	errors := []string{}
@@ -1764,6 +1841,7 @@ func getPayment(rw http.ResponseWriter, req *http.Request) {
 }
 
 const paymentPath = "/api/v1/payments/payment/"
+const userPath = "/api/v1/users/"
 
 func main() {
 	cfg := flag.String("c", "cfg.json", "specify config file")
@@ -1801,12 +1879,13 @@ func main() {
 		so.Emit("error", err)
 	})
 
+	http.HandleFunc(userPath, getUser)
 	// https://developer.paypal.com/docs/api/payments/v1/#payment_get
 	http.HandleFunc(paymentPath, getPayment)
 	// https://developer.paypal.com/docs/api/payments/v1/
 	http.HandleFunc("/api/v1/payments/payment", setPayment)
 	// https://developer.paypal.com/docs/api/identity/v1/
-	http.HandleFunc("/api/v1/identity/idhub/userinfo", getUser)
+	http.HandleFunc("/api/v1/identity/idhub/userinfo", getUserPayPal)
 	http.HandleFunc("/api/v1/attestations", getAttestation)
 	http.HandleFunc("/api/v1/attestations/add", createAttestation)
 	http.HandleFunc("/api/v1/authorizations/jwt", validateUserAauthorizationJWT)
