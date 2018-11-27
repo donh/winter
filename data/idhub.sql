@@ -58,6 +58,7 @@ CREATE TABLE `idhub`.`payments` (
   `eth` DECIMAL(10,6) DEFAULT NULL,
   `firstName` varchar(20) CHARACTER SET utf8 NOT NULL,
   `lastName` varchar(20) CHARACTER SET utf8 NOT NULL,
+  `email` varchar(255) DEFAULT NULL,
   `phone` varchar(16) NOT NULL,
   `wallet` varchar(70) NOT NULL,
   -- `return_url` varchar(150) DEFAULT NULL,

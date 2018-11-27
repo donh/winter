@@ -379,9 +379,9 @@ func createUser(rw http.ResponseWriter, r *http.Request) {
 	num, err := o.Raw(sql, user["email"]).Values(&rows)
 	if err != nil {
 		setError(err.Error(), result)
-		// TEMP
-		// } else if num == 0 {
-		// TEMP
+// TEMP
+	// } else if num == 0 {
+// TEMP
 	} else if num >= 0 {
 		now := getNow()
 		sql = "INSERT INTO `idhub`.`users`(`firstName`, `lastName`, `phone`, `email`,"
@@ -1491,138 +1491,195 @@ func setPayment(rw http.ResponseWriter, req *http.Request) {
 	payment["create_time"] = now
 	payment["update_time"] = now
 	payment["state"] = "created"
-	if val, ok := payload["intent"]; ok {
-		payment["intent"] = val
+	if val, ok := payload["companyCode"]; ok {
+		payment["companyCode"] = val
 	}
-	if val, ok := payload["note_to_payer"]; ok {
-		payment["note_to_payer"] = val
+	if val, ok := payload["paymentStatus"]; ok {
+		payment["paymentStatus"] = val
+	}
+	if val, ok := payload["currency"]; ok {
+		payment["currency"] = val
+	}
+	payment["subtotal"] = 0
+	if val, ok := payload["subtotal"]; ok {
+		valueInt, err := strconv.Atoi(val.(string))
+		if err != nil {
+			setError(err.Error(), result)
+		} else {
+			payment["subtotal"] = valueInt
+		}
+	}
+	payment["shipping"] = 0
+	if val, ok := payload["shipping"]; ok {
+		valueInt, err := strconv.Atoi(val.(string))
+		if err != nil {
+			setError(err.Error(), result)
+		} else {
+			payment["shipping"] = valueInt
+		}
+	}
+	payment["commission"] = 0
+	if val, ok := payload["commission"]; ok {
+		valueInt, err := strconv.Atoi(val.(string))
+		if err != nil {
+			setError(err.Error(), result)
+		} else {
+			payment["commission"] = valueInt
+		}
+	}
+	payment["total"] = payment["subtotal"].(int) + payment["shipping"].(int) + payment["commission"].(int)
+	if val, ok := payload["firstName"]; ok {
+		payment["firstName"] = val
+	}
+	if val, ok := payload["lastName"]; ok {
+		payment["lastName"] = val
+	}
+	if val, ok := payload["phone"]; ok {
+		payment["phone"] = val
+	}
+	if val, ok := payload["email"]; ok {
+		payment["email"] = val
+	}
+	if val, ok := payload["phone"]; ok {
+		payment["phone"] = val
+	}
+	if val, ok := payload["wallet"]; ok {
+		payment["wallet"] = val
+	}
+	if val, ok := payload["note"]; ok {
+		payment["note"] = val
+	}
+	if val, ok := payload["deadline"]; ok {
+		payment["deadline"] = val
 	}
 	// output = item
-	if val, ok := payload["payer"]; ok {
-		if payer, ok := val.(map[string]interface{})["payment_method"]; ok {
-			payment["payer"] = payer
-		}
-	}
+	// if val, ok := payload["payer"]; ok {
+	// 	if payer, ok := val.(map[string]interface{})["payment_method"]; ok {
+	// 		payment["payer"] = payer
+	// 	}
+	// }
 
-	if val, ok := payload["redirect_urls"]; ok {
-		if returnURL, ok := val.(map[string]interface{})["return_url"]; ok {
-			payment["return_url"] = returnURL
-		}
-		if cancelURL, ok := val.(map[string]interface{})["cancel_url"]; ok {
-			payment["cancel_url"] = cancelURL
-		}
-	}
+	// if val, ok := payload["redirect_urls"]; ok {
+	// 	if returnURL, ok := val.(map[string]interface{})["return_url"]; ok {
+	// 		payment["return_url"] = returnURL
+	// 	}
+	// 	if cancelURL, ok := val.(map[string]interface{})["cancel_url"]; ok {
+	// 		payment["cancel_url"] = cancelURL
+	// 	}
+	// }
 
-	transactions := []interface{}{}
-	if val, ok := payload["transactions"]; ok {
-		transaction := map[string]interface{}{}
-		for _, row := range val.([]interface{}) {
-			if s, ok := row.(map[string]interface{})["amount"]; ok {
-				amount := map[string]interface{}{}
-				if t, ok := s.(map[string]interface{})["total"]; ok {
-					amount["total"] = t
-				}
-				if t, ok := s.(map[string]interface{})["currency"]; ok {
-					amount["currency"] = t
-				}
-				if t, ok := s.(map[string]interface{})["details"]; ok {
-					log.Println("t =", t)
-					details := map[string]interface{}{}
-					details["subtotal"] = t.(map[string]interface{})["subtotal"]
-					details["tax"] = t.(map[string]interface{})["tax"]
-					details["shipping"] = t.(map[string]interface{})["shipping"]
-					details["handling_fee"] = t.(map[string]interface{})["handling_fee"]
-					details["shipping_discount"] = t.(map[string]interface{})["shipping_discount"]
-					details["insurance"] = t.(map[string]interface{})["insurance"]
-					amount["details"] = details
-				}
-				log.Println("amount =", amount)
-				transaction["amount"] = amount
-			}
-			if s, ok := row.(map[string]interface{})["description"]; ok {
-				transaction["description"] = s
-			}
-			if s, ok := row.(map[string]interface{})["custom"]; ok {
-				transaction["custom"] = s
-			}
-			if s, ok := row.(map[string]interface{})["invoice_number"]; ok {
-				transaction["invoice_number"] = s
-			}
-			// if s, ok := row.(map[string]interface{})["payment_options"]; ok {
-			// 	if paymentMethod, ok := s.(map[string]interface{})["allowed_payment_method"]; ok {
-			// 		transaction["payment_options"] = paymentMethod
-			// 	}
-			// }
-			if s, ok := row.(map[string]interface{})["soft_descriptor"]; ok {
-				transaction["soft_descriptor"] = s
-			}
-			if s, ok := row.(map[string]interface{})["item_list"]; ok {
-				if t, ok := s.(map[string]interface{})["items"]; ok {
-					items := []interface{}{}
-					obj := map[string]interface{}{}
-					for _, u := range t.([]interface{}) {
-						if v, ok := u.(map[string]interface{})["name"]; ok {
-							obj["name"] = v
-						}
-						if v, ok := u.(map[string]interface{})["description"]; ok {
-							obj["description"] = v
-						}
-						if v, ok := u.(map[string]interface{})["quantity"]; ok {
-							obj["quantity"] = v
-						}
-						if v, ok := u.(map[string]interface{})["price"]; ok {
-							obj["price"] = v
-						}
-						if v, ok := u.(map[string]interface{})["tax"]; ok {
-							obj["tax"] = v
-						}
-						if v, ok := u.(map[string]interface{})["sku"]; ok {
-							obj["sku"] = v
-						}
-						if v, ok := u.(map[string]interface{})["currency"]; ok {
-							obj["currency"] = v
-						}
-						items = append(items, obj)
-					}
-					log.Println("items =", items)
-					transaction["items"] = items
-				}
-				if t, ok := s.(map[string]interface{})["shipping_address"]; ok {
-					shippingAddress := map[string]interface{}{}
-					if u, ok := t.(map[string]interface{})["recipient_name"]; ok {
-						shippingAddress["recipient_name"] = u
-					}
-					if u, ok := t.(map[string]interface{})["line1"]; ok {
-						shippingAddress["line1"] = u
-					}
-					if u, ok := t.(map[string]interface{})["line2"]; ok {
-						shippingAddress["line2"] = u
-					}
-					if u, ok := t.(map[string]interface{})["city"]; ok {
-						shippingAddress["city"] = u
-					}
-					if u, ok := t.(map[string]interface{})["country_code"]; ok {
-						shippingAddress["country_code"] = u
-					}
-					if u, ok := t.(map[string]interface{})["postal_code"]; ok {
-						shippingAddress["postal_code"] = u
-					}
-					if u, ok := t.(map[string]interface{})["phone"]; ok {
-						shippingAddress["phone"] = u
-					}
-					if u, ok := t.(map[string]interface{})["state"]; ok {
-						shippingAddress["state"] = u
-					}
-					log.Println("shippingAddress =", shippingAddress)
-					transaction["shipping_address"] = shippingAddress
-				}
-			}
-			transactions = append(transactions, transaction)
-		}
-	}
-	log.Println("transactions =", transactions)
-	payment["transactions"] = transactions
-	item := savePayment(payment, result)
+	// transactions := []interface{}{}
+	// if val, ok := payload["transactions"]; ok {
+	// 	transaction := map[string]interface{}{}
+	// 	for _, row := range val.([]interface{}) {
+	// 		if s, ok := row.(map[string]interface{})["amount"]; ok {
+	// 			amount := map[string]interface{}{}
+	// 			if t, ok := s.(map[string]interface{})["total"]; ok {
+	// 				amount["total"] = t
+	// 			}
+	// 			if t, ok := s.(map[string]interface{})["currency"]; ok {
+	// 				amount["currency"] = t
+	// 			}
+	// 			if t, ok := s.(map[string]interface{})["details"]; ok {
+	// 				log.Println("t =", t)
+	// 				details := map[string]interface{}{}
+	// 				details["subtotal"] = t.(map[string]interface{})["subtotal"]
+	// 				details["tax"] = t.(map[string]interface{})["tax"]
+	// 				details["shipping"] = t.(map[string]interface{})["shipping"]
+	// 				details["handling_fee"] = t.(map[string]interface{})["handling_fee"]
+	// 				details["shipping_discount"] = t.(map[string]interface{})["shipping_discount"]
+	// 				details["insurance"] = t.(map[string]interface{})["insurance"]
+	// 				amount["details"] = details
+	// 			}
+	// 			log.Println("amount =", amount)
+	// 			transaction["amount"] = amount
+	// 		}
+	// 		if s, ok := row.(map[string]interface{})["description"]; ok {
+	// 			transaction["description"] = s
+	// 		}
+	// 		if s, ok := row.(map[string]interface{})["custom"]; ok {
+	// 			transaction["custom"] = s
+	// 		}
+	// 		if s, ok := row.(map[string]interface{})["invoice_number"]; ok {
+	// 			transaction["invoice_number"] = s
+	// 		}
+	// 		// if s, ok := row.(map[string]interface{})["payment_options"]; ok {
+	// 		// 	if paymentMethod, ok := s.(map[string]interface{})["allowed_payment_method"]; ok {
+	// 		// 		transaction["payment_options"] = paymentMethod
+	// 		// 	}
+	// 		// }
+	// 		if s, ok := row.(map[string]interface{})["soft_descriptor"]; ok {
+	// 			transaction["soft_descriptor"] = s
+	// 		}
+	// 		if s, ok := row.(map[string]interface{})["item_list"]; ok {
+	// 			if t, ok := s.(map[string]interface{})["items"]; ok {
+	// 				items := []interface{}{}
+	// 				obj := map[string]interface{}{}
+	// 				for _, u := range t.([]interface{}) {
+	// 					if v, ok := u.(map[string]interface{})["name"]; ok {
+	// 						obj["name"] = v
+	// 					}
+	// 					if v, ok := u.(map[string]interface{})["description"]; ok {
+	// 						obj["description"] = v
+	// 					}
+	// 					if v, ok := u.(map[string]interface{})["quantity"]; ok {
+	// 						obj["quantity"] = v
+	// 					}
+	// 					if v, ok := u.(map[string]interface{})["price"]; ok {
+	// 						obj["price"] = v
+	// 					}
+	// 					if v, ok := u.(map[string]interface{})["tax"]; ok {
+	// 						obj["tax"] = v
+	// 					}
+	// 					if v, ok := u.(map[string]interface{})["sku"]; ok {
+	// 						obj["sku"] = v
+	// 					}
+	// 					if v, ok := u.(map[string]interface{})["currency"]; ok {
+	// 						obj["currency"] = v
+	// 					}
+	// 					items = append(items, obj)
+	// 				}
+	// 				log.Println("items =", items)
+	// 				transaction["items"] = items
+	// 			}
+	// 			if t, ok := s.(map[string]interface{})["shipping_address"]; ok {
+	// 				shippingAddress := map[string]interface{}{}
+	// 				if u, ok := t.(map[string]interface{})["recipient_name"]; ok {
+	// 					shippingAddress["recipient_name"] = u
+	// 				}
+	// 				if u, ok := t.(map[string]interface{})["line1"]; ok {
+	// 					shippingAddress["line1"] = u
+	// 				}
+	// 				if u, ok := t.(map[string]interface{})["line2"]; ok {
+	// 					shippingAddress["line2"] = u
+	// 				}
+	// 				if u, ok := t.(map[string]interface{})["city"]; ok {
+	// 					shippingAddress["city"] = u
+	// 				}
+	// 				if u, ok := t.(map[string]interface{})["country_code"]; ok {
+	// 					shippingAddress["country_code"] = u
+	// 				}
+	// 				if u, ok := t.(map[string]interface{})["postal_code"]; ok {
+	// 					shippingAddress["postal_code"] = u
+	// 				}
+	// 				if u, ok := t.(map[string]interface{})["phone"]; ok {
+	// 					shippingAddress["phone"] = u
+	// 				}
+	// 				if u, ok := t.(map[string]interface{})["state"]; ok {
+	// 					shippingAddress["state"] = u
+	// 				}
+	// 				log.Println("shippingAddress =", shippingAddress)
+	// 				transaction["shipping_address"] = shippingAddress
+	// 			}
+	// 		}
+	// 		transactions = append(transactions, transaction)
+	// 	}
+	// }
+	// log.Println("transactions =", transactions)
+	// payment["transactions"] = transactions
+	// item := savePayment(payment, result)
+	log.Println("payment =", payment)
+	item := payment
 
 	nodes := map[string]interface{}{}
 	result["items"] = item
@@ -1883,7 +1940,8 @@ func main() {
 	// https://developer.paypal.com/docs/api/payments/v1/#payment_get
 	http.HandleFunc(paymentPath, getPayment)
 	// https://developer.paypal.com/docs/api/payments/v1/
-	http.HandleFunc("/api/v1/payments/payment", setPayment)
+	// http.HandleFunc("/api/v1/payments/payment", setPayment)
+	http.HandleFunc("/api/v1/payments/add", setPayment)
 	// https://developer.paypal.com/docs/api/identity/v1/
 	http.HandleFunc("/api/v1/identity/idhub/userinfo", getUserPayPal)
 	http.HandleFunc("/api/v1/attestations", getAttestation)
