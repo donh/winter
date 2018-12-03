@@ -379,9 +379,9 @@ func createUser(rw http.ResponseWriter, r *http.Request) {
 	num, err := o.Raw(sql, user["email"]).Values(&rows)
 	if err != nil {
 		setError(err.Error(), result)
-// TEMP
-	// } else if num == 0 {
-// TEMP
+		// TEMP
+		// } else if num == 0 {
+		// TEMP
 	} else if num >= 0 {
 		now := getNow()
 		sql = "INSERT INTO `idhub`.`users`(`firstName`, `lastName`, `phone`, `email`,"
@@ -1396,7 +1396,6 @@ func savePayment(payment map[string]interface{}, result map[string]interface{}) 
 	// 	delete(payment, "transactions")
 	// 	log.Println("payment =", payment)
 
-
 	// }
 	// return input
 	return payment
@@ -1895,6 +1894,8 @@ func main() {
 	http.HandleFunc(paymentPath, getPayment)
 	// https://developer.paypal.com/docs/api/payments/v1/
 	// http.HandleFunc("/api/v1/payments/payment", setPayment)
+	http.HandleFunc("/api/v1/users/add", createUser)
+	http.HandleFunc("/api/v1/users/update", updateUser)
 	http.HandleFunc("/api/v1/payments/add", setPayment)
 	// https://developer.paypal.com/docs/api/identity/v1/
 	http.HandleFunc("/api/v1/identity/idhub/userinfo", getUserPayPal)
@@ -1907,7 +1908,7 @@ func main() {
 	http.HandleFunc("/api/v1/claims/token", generateClaimToken)
 	http.HandleFunc("/api/v1/login/jwt", validateUsersLoginJWT)
 	http.HandleFunc("/api/v1/login/token", generateLoginToken)
-	http.HandleFunc("/api/v1/users/add", createUser)
+
 	http.Handle("/api/v1/socket/", server)
 
 	port := Config().Port
