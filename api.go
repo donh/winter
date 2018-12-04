@@ -10,6 +10,7 @@ import (
 	"github.com/googollee/go-socket.io"
 	"github.com/satori/go.uuid"
 	"github.com/toolkits/file"
+	"io/ioutil"
 	"log"
 	"math"
 	"math/rand"
@@ -149,9 +150,9 @@ func parseConfig(cfg string) {
 }
 
 // const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-// const letterBytes = "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const letterBytes = "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 // const letterBytes = "1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-const letterBytes = "abcdefghijklmnopqrstuvwxyz1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+// const letterBytes = "abcdefghijklmnopqrstuvwxyz1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 const (
 	letterIdxBits = 6                    // 6 bits to represent a letter index
 	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
@@ -1342,14 +1343,19 @@ func savePayment(payment map[string]interface{}, result map[string]interface{}) 
 		now := getNow()
 		sql = "INSERT INTO `idhub`.`payments`(`payid`, `companyCode`, `paymentStatus`,"
 		sql += "`currency`, `total`, `subtotal`, `shipping`,"
-		sql += "`commission`, `firstName`, `lastName`, `email`,"
+		// sql += "`commission`, `firstName`, `lastName`, `email`,"
+		sql += "`commission`, `exchangeRate`, `eth`, `firstName`, `lastName`, `email`,"
 		sql += "`phone`, `wallet`, `note`, `deadline`,"
 		sql += "`created`, `updated`) VALUES("
-		sql += "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+		sql += "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 		log.Println("sql =", sql)
+		log.Println("payment =", payment)
+		log.Println("payment['exchangeRate'] =", payment["exchangeRate"])
 		response, err := o.Raw(sql, payment["id"], payment["companyCode"], "created",
 			payment["currency"], payment["total"], payment["subtotal"], payment["shipping"],
-			payment["commission"], payment["firstName"], payment["lastName"], payment["email"],
+			// payment["commission"], payment["firstName"], payment["lastName"], payment["email"],
+			payment["commission"], payment["exchangeRate"], payment["eth"],
+			payment["firstName"], payment["lastName"], payment["email"],
 			payment["phone"], payment["wallet"], payment["note"], payment["deadline"],
 			now, now).Exec()
 		log.Println("response =", response)
@@ -1401,8 +1407,8 @@ func savePayment(payment map[string]interface{}, result map[string]interface{}) 
 	return payment
 }
 
-func setPayment(rw http.ResponseWriter, req *http.Request) {
-	log.Println("func setPayment()")
+func createPayment(rw http.ResponseWriter, req *http.Request) {
+	log.Println("func createPayment()")
 	errors := []string{}
 	result := map[string]interface{}{}
 	result["error"] = errors
@@ -1421,7 +1427,6 @@ func setPayment(rw http.ResponseWriter, req *http.Request) {
 	// item["id"] = "PAY-1B56960729604235TKQQIYVY"
 	// payment["id"] = "IDH-" + randStringBytesMaskImprSrc(24)
 	payment["id"] = "IDH-" + randStringBytesMaskImprSrc(15)
-	// item["payid"] = "IDH-" + randStringBytesMaskImprSrc(24)
 	log.Println("payment['id'] =", payment["id"])
 
 	now := getNowUTC()
@@ -1464,7 +1469,9 @@ func setPayment(rw http.ResponseWriter, req *http.Request) {
 			payment["commission"] = valueInt
 		}
 	}
+	// total := payment["subtotal"].(int) + payment["shipping"].(int) + payment["commission"].(int)
 	payment["total"] = payment["subtotal"].(int) + payment["shipping"].(int) + payment["commission"].(int)
+	log.Println("payment['total'] =", payment["total"])
 	if val, ok := payload["firstName"]; ok {
 		payment["firstName"] = val
 	}
@@ -1488,6 +1495,56 @@ func setPayment(rw http.ResponseWriter, req *http.Request) {
 	}
 	if val, ok := payload["deadline"]; ok {
 		payment["deadline"] = val
+	}
+	payment["exchangeRate"] = 0
+	payment["eth"] = 0
+
+	nodes := map[string]interface{}{}
+	url := "https://api.coinmarketcap.com/v2/ticker/?start=3&convert=JPY&limit=1"
+	log.Println("url =", url)
+
+	req, err = http.NewRequest("GET", url, nil)
+	if err != nil {
+		setError(err.Error(), result)
+		return
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		setError(err.Error(), result)
+		return
+	}
+	defer resp.Body.Close()
+
+	body, _ := ioutil.ReadAll(resp.Body)
+	if err := json.Unmarshal(body, &nodes); err != nil {
+		setError(err.Error(), result)
+	}
+
+	log.Println("nodes =", nodes)
+	data := nodes["data"]
+	log.Println("data =", data)
+	if val, ok := nodes["data"]; ok {
+		Ethereum := val.(map[string]interface{})["1027"]
+		if quotes, ok := Ethereum.(map[string]interface{})["quotes"]; ok {
+			JPY := quotes.(map[string]interface{})["JPY"]
+			// if price, ok := JPY.(map[string]interface{})["price"]; ok {
+			if val, ok = JPY.(map[string]interface{})["price"]; ok {
+				price := math.Round(val.(float64) * 1000000) / 1000000
+				log.Println("val =", val)
+				log.Println("price =", price)
+				// payment["exchangeRate"] = float32(price)
+				// payment["exchangeRate"] = 1
+				payment["exchangeRate"] = price
+				// payment["eth"] = total / price.(float64)
+				// payment["eth"] = float64(payment["total"].(int)) / price.(float64)
+				eth := float64(payment["total"].(int)) / price
+				payment["eth"] = math.Round(eth * 1000000) / 1000000
+				// payment["eth"] = payment["total"] / price.(float64)
+				log.Println("payment['eth'] =", payment["eth"])
+			}
+		}
 	}
 	// output = item
 	// if val, ok := payload["payer"]; ok {
@@ -1619,7 +1676,8 @@ func setPayment(rw http.ResponseWriter, req *http.Request) {
 	// item := payment
 	item := savePayment(payment, result)
 
-	nodes := map[string]interface{}{}
+	// nodes := map[string]interface{}{}
+	nodes = map[string]interface{}{}
 	result["items"] = item
 	nodes["result"] = result
 	rw.Header().Set("Access-Control-Allow-Origin", "*")
@@ -1893,10 +1951,10 @@ func main() {
 	// https://developer.paypal.com/docs/api/payments/v1/#payment_get
 	http.HandleFunc(paymentPath, getPayment)
 	// https://developer.paypal.com/docs/api/payments/v1/
-	// http.HandleFunc("/api/v1/payments/payment", setPayment)
+	// http.HandleFunc("/api/v1/payments/payment", createPayment)
 	http.HandleFunc("/api/v1/users/add", createUser)
-	http.HandleFunc("/api/v1/users/update", updateUser)
-	http.HandleFunc("/api/v1/payments/add", setPayment)
+	// http.HandleFunc("/api/v1/users/update", updateUser)
+	http.HandleFunc("/api/v1/payments/add", createPayment)
 	// https://developer.paypal.com/docs/api/identity/v1/
 	http.HandleFunc("/api/v1/identity/idhub/userinfo", getUserPayPal)
 	http.HandleFunc("/api/v1/attestations", getAttestation)
