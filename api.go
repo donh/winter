@@ -6,8 +6,11 @@ import (
 	"flag"
 	"github.com/astaxie/beego/orm"
 	"github.com/bitly/go-simplejson"
+	// "github.com/ethereum/go-ethereum/accounts"
+	// "github.com/ethereum/go-ethereum/accounts/keystore"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/googollee/go-socket.io"
+	"github.com/icrowley/fake"
 	"github.com/satori/go.uuid"
 	"github.com/toolkits/file"
 	"io/ioutil"
@@ -1908,6 +1911,105 @@ func getPayment(rw http.ResponseWriter, req *http.Request) {
 	setResponse(rw, nodes)
 }
 
+func fakeUser(rw http.ResponseWriter, req *http.Request) {
+	log.Println("func fakeUser()")
+	errors := []string{}
+	result := map[string]interface{}{}
+	result["error"] = errors
+	item := map[string]interface{}{}
+
+	// name := fake.FirstName()
+	// fullname := fake.FullName()
+	// product := fake.Product()
+	// log.Println("name =", name)
+	// log.Println("fullname =", fullname)
+	// log.Println("product =", product)
+	// item["firstName"] = fake.FirstName()
+	item["firstName"] = fake.FemaleFirstName()
+	item["lastName"] = fake.LastName()
+	item["phone"] = fake.Phone()
+	item["email"] = fake.EmailAddress()
+	item["country"] = fake.Country()
+	item["region"] = fake.State()
+	item["city"] = fake.City()
+	item["street"] = fake.StreetAddress()
+	item["zip"] = fake.Zip()
+	item["publickey"] = "0x1f772db718238d8413BAD9B309950a9c5286Fd71"
+	item["wallet"] = "0x8d2A0069C337Cf501e555EB499c82381db8C8c3c"
+	item["proxy"] = "0x8d12A197cB00D4747a1fe03395095ce2A5CC6819"
+
+	log.Println("item =", item)
+
+	// newAcc, _ := am.NewAccount("Creation password");
+	// accountManager := accounts.NewManager(".ethereum/rinkeby/keystore",accounts.StandardScryptN, accounts.StandardScryptP)
+	// log.Println("accountManager =", accountManager)
+
+
+	// Export the newly created account with a different passphrase. The returned
+	// data from this method invocation is a JSON encoded, encrypted key-file.
+	// jsonAcc, _ := am.Export(newAcc, "Creation password", "Export password");
+	// log.Println("jsonAcc =", jsonAcc)
+
+	// signer, _ := am.NewAccount("Signer password");
+	// log.Println("item =", item)
+
+	log.Println("item =", item)
+	nodes := map[string]interface{}{}
+	result["items"] = item
+	nodes["result"] = result
+	rw.Header().Set("Access-Control-Allow-Origin", "*")
+	setResponse(rw, nodes)
+}
+
+func fakePayment(rw http.ResponseWriter, req *http.Request) {
+	log.Println("func fakePayment()")
+	errors := []string{}
+	result := map[string]interface{}{}
+	result["error"] = errors
+	item := map[string]interface{}{}
+
+	companyCodes := [10]int{10, 20, 30, 40, 50, 60, 100, 120, 200, 999}
+	// name := fake.FirstName()
+	// fullname := fake.FullName()
+	// product := fake.Product()
+	// log.Println("name =", name)
+	// log.Println("fullname =", fullname)
+	// log.Println("product =", product)
+	// item["firstName"] = fake.FirstName()
+	// item["companyCode"] = fake.Industry()
+	item["companyCode"] = companyCodes[rand.Intn(10)]
+	item["paymentStatus"] = "Start"
+	item["currency"] = "JPY"
+	item["subtotal"] = fake.DigitsN(5)
+	item["shipping"] = fake.DigitsN(3)
+	item["commission"] = fake.DigitsN(4)
+	item["firstName"] = fake.FemaleFirstName()
+	item["lastName"] = fake.LastName()
+	item["phone"] = fake.Phone()
+	item["email"] = fake.EmailAddress()
+	item["wallet"] = "0x8d2A0069C337Cf501e555EB499c82381db8C8c3c"
+	// item["note"] = fake.Word()
+	// item["note"] = fake.Words()
+	item["note"] = fake.Paragraph()
+	// item["words"] = fake.Words()
+	day := fake.Day()
+	// month := fake.Month()
+	month := fake.MonthNum()
+	log.Println("day =", day)
+	log.Println("month =", month)
+	// deadline := "2019-" + month + "-" + day
+	deadline := "2019-" + strconv.Itoa(month) + "-" + strconv.Itoa(day)
+	item["deadline"] = deadline
+
+	log.Println("item =", item)
+	nodes := map[string]interface{}{}
+	result["items"] = item
+	nodes["result"] = result
+	rw.Header().Set("Access-Control-Allow-Origin", "*")
+	setResponse(rw, nodes)
+}
+
+
 const paymentPath = "/api/v1/payments/payment/"
 const userPath = "/api/v1/users/"
 
@@ -1955,6 +2057,8 @@ func main() {
 	http.HandleFunc("/api/v1/users/add", createUser)
 	// http.HandleFunc("/api/v1/users/update", updateUser)
 	http.HandleFunc("/api/v1/payments/add", createPayment)
+	http.HandleFunc("/api/v1/fake/user", fakeUser)
+	http.HandleFunc("/api/v1/fake/payment", fakePayment)
 	// https://developer.paypal.com/docs/api/identity/v1/
 	http.HandleFunc("/api/v1/identity/idhub/userinfo", getUserPayPal)
 	http.HandleFunc("/api/v1/attestations", getAttestation)
