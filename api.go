@@ -369,9 +369,9 @@ func createUser(rw http.ResponseWriter, r *http.Request) {
 	// user["controller"] = contract["controller"].(string)
 	// user["recovery"] = contract["recovery"].(string)
 	user["privateKey"] = "testPrivateKey"
-	user["publicKey"] = "testPublickey"
-	user["address"] = "testAddress"
-	user["proxy"] = "testProxy"
+	// user["publicKey"] = "testPublickey"
+	// user["address"] = "testAddress"
+	// user["proxy"] = "testProxy"
 
 	// account := map[string]string{}
 	o := orm.NewOrm()
@@ -434,16 +434,18 @@ func createUser(rw http.ResponseWriter, r *http.Request) {
 			// 	account["recovery"] = user["recovery"].(string)
 		} else {
 			item["userid"] = id
-			address := map[string]interface{}{}
-			address["country"] = user["country"]
-			address["region"] = user["region"]
-			address["locality"] = user["locality"]
-			address["street_address"] = user["street_address"]
-			address["postal_code"] = user["postal_code"]
-			item["address"] = address
-			item["name"] = user["name"]
-			item["phone"] = user["phone"]
+			item["firstName"] = user["firstName"]
+			item["lastName"] = user["lastName"]
 			item["email"] = user["email"]
+			item["phone"] = user["phone"]
+			item["country"] = user["country"]
+			item["region"] = user["region"]
+			item["city"] = user["city"]
+			item["street"] = user["street"]
+			item["zip"] = user["zip"]
+			item["publicKey"] = user["publicKey"]
+			item["wallet"] = user["wallet"]
+			item["proxy"] = user["proxy"]
 		}
 		// log.Println("response.LastInsertId() =", response.LastInsertId())
 	}
